@@ -1,13 +1,11 @@
 # P48 → 8 V PIP adapter — ngspice simulation harness
 
 Headless SPICE verification of the adapter circuit. The deck is **generated from
-`../netlist.py`**, the same single source of truth the schematic and the PCB
-derive from, so the simulation cannot drift away from the board.
+`../netlist.py`**, the same single source of truth the schematic figure and the
+PCB derive from, so the simulation cannot drift away from the board.
 
-> **Note:** the result tables below reflect the *baseline* circuit. `netlist.py`
-> is now rev-E (emitter-bypass buffer etc.); `run.ps1` is retargeted to it and
-> passes (Zout ~78 Ω, gain ~0 dB, balanced pins). See the closed git.koti issues
-> #2/#3/#5/#11 for the rev-E numbers.
+The tables below are the **rev-E** results (the CB2/CB3+RB2/RB3 emitter-bypass
+low-Z output stage); `run.ps1` range-checks 17 assertions and all pass.
 
 ```
 sim/
@@ -76,25 +74,26 @@ ultrasonic; the capsule sets the real HF limit).
 Expected values are the hand-derived numbers from the 2026-07-06 design review
 (issues #2/#3/#5/#6/#9); ±15 % is allowed where the zener dominates.
 
-| # | Analysis | Confirms | Latest sim result |
+| # | Analysis | Confirms | rev-E sim result |
 |---|----------|----------|-------------------|
-| 1 | `.op` operating point | #3, #5 | V(P2)=30.6 V, V(P3)=28.2 V, I(pin2)=2.56 mA, I(pin3)=2.91 mA, VPIP=7.30 V, I(D1)=199 µA |
-| 2 | `.ac` output impedance at pin 2 | #2 | **10.03 kΩ flat** 20 Hz–100 kHz (not the old 30–50 Ω claim) |
-| 3 | `.ac` gain, capsule→differential | #2, #6 | −21.8 dB @ 1 kHz (in the 13–22 dB loss band); passband flat 100 Hz–20 kHz to 0.44 dB; polarity **inverting** |
-| 4 | `.tran` startup 0–15 s (cold) | #9 | max Vce(Q1)=28.2 V (< 35 V); VPIP at 90 % in **~0.7 s** |
+| 1 | `.op` operating point | #3, #5 | V(P2)=27.6 V, V(P3)=27.3 V, I(pin2)=3.00 mA, I(pin3)=3.03 mA, VPIP=7.37 V, I(D1)=408 µA, pin imbalance 37 µA |
+| 2 | `.ac` output impedance at pin 2 | #2, #11 | **~78 Ω, flat** 1 k–20 kHz (0.004 flatness) — the emitter bypass, down from ~10 kΩ |
+| 3 | `.ac` gain, capsule→differential | #2, #6 | **−0.56 dB @ 1 kHz** (near-unity buffer); passband flat 100 Hz–20 kHz to 0.009 dB; LF droop 0.69 dB @ 20 Hz; polarity **inverting** |
+| 4 | `.tran` startup 0–15 s (cold) | #9 | max Vce(Q1)=23.1 V (< 35 V); VPIP at 90 % in **~0.8 s**, settled 7.38 V |
 | 5 | `.tran` polarity blip | #6 | down-gate-step → up-output ⇒ inverting (agrees with #3) |
 | 6 | `.noise` at the output | — | informational only (see caveat) |
 
-### Findings the sim surfaced (feed back to the issues)
+### Findings the sim surfaced (fed into rev-E)
 
-- **Bass roll-off ≈ 4.3 dB at 20 Hz.** The audio passband has a ~40 Hz high-pass
-  corner set by the **VPIP bypass** (C1‖C5 = 32 µF) working against Q1's ~170 Ω
-  emitter output impedance — *not* by the C2 coupling cap (C2's corner is ~1.2 Hz).
-  Bumping C1/C5 to ~220 µF flattens 20 Hz to < 0.1 dB. Candidate tweak if flat
-  bass matters; otherwise a documented −3 dB near 40 Hz.
-- **Startup is faster than estimated.** VPIP reaches 90 % in ~0.7 s and is settled
-  by ~2 s, versus the ~5–10 s note in #9 — because the zener clamps VREF long
-  before R9·C4 (2.2 s) would fully charge, shortening the ramp.
+- **Output impedance is now ~78 Ω**, flat across the audio band, set by the rev-E
+  CB2/CB3+RB2/RB3 emitter bypass that takes the output at Q2/Q3's low-Z emitters —
+  down from the baseline ~10 kΩ, and low enough to drive long cable without HF loss.
+- **The bass roll-off is now a gentle, deliberate 0.69 dB at 20 Hz.** The baseline's
+  ~4 dB VPIP-bypass droop is gone; the remaining sub-50 Hz taper is set by the
+  emitter-bypass caps against their DC-bias derating, which is desirable here and
+  keeps CB2/CB3 small (no oversizing / polymer needed).
+- **Startup** reaches 90 % of VPIP in ~0.8 s and is settled by ~2 s (well under the
+  ~5–10 s #9 estimate): the zener clamps VREF long before R9·C4 fully charges.
 - **Polarity is inverting** (positive gate excursion → negative-going differential
   output), matching the #6 topology prediction. The *capsule-construction* half of
   #6 still needs the bench.
@@ -105,9 +104,9 @@ Expected values are the hand-derived numbers from the 2026-07-06 design review
   not publish a downloadable SPICE model and the vendor download endpoints block
   scripted access, so the model is fitted to the Rev.7 datasheet reverse curve
   (Vz=8.2 V and rdif=15 Ω at 5 mA, rdif=80 Ω at 1 mA — the soft knee). At the
-  ~190 µA operating point it predicts VREF≈7.96 V ⇒ VPIP≈7.30 V. That is ~0.1 V
-  above the review's 6.5–7.2 V estimate: the datasheet's max rdif bounds how soft
-  the knee can be, so the real part sags *less* at 190 µA than hand-estimated.
+  rev-E ~410 µA operating point (R9 47k) it predicts VREF≈8.0 V ⇒ VPIP≈7.37 V.
+  That is ~0.2 V above the review's 6.5–7.2 V estimate: the datasheet's max rdif
+  bounds how soft the knee can be, so the real part sags *less* than hand-estimated.
   If you obtain the official vendor model, drop it in `models/` (keep the name
   `BZX84C8V2`) and re-run. See the file header for the fit rationale + source URL.
 - **Zener noise is not modelled.** SPICE has no avalanche-noise magnitude, so the
@@ -120,12 +119,16 @@ Expected values are the hand-derived numbers from the 2026-07-06 design review
   gain and the capsule DC operating point; the real AOM-5024 transconductance and
   output polarity are bench items.
 
-## Evaluating the proposed respin tweaks
+## Using the harness for further tweaks
 
-Once green as-is, use the harness to A/B the review's suggestions before any
-respin (edit `../netlist.py`, re-run):
+rev-E already folds in the review's key changes — R9 100k → 47k (#3, ~doubles the
+zener bias) and R1 10k → 7.5k (#5, rebalances the pin-2 current) — plus the
+CB2/CB3+RB2/RB3 emitter bypass, which made the earlier "C1/C5 → 220 µF for flat
+bass" idea unnecessary (the sub-50 Hz taper is now deliberate). Use the harness to
+A/B any further change (edit `../netlist.py`, re-run):
 
-- R9 100k → 47k (#3): roughly doubles zener bias, watch the pin-3 imbalance.
-- R1 10k → 7.5k (#5): rebalances pin-2 current, changes the pin-2 source-Z leg.
-- C2/C3 swap (#6): flips the driven leg to pin 3 to correct differential polarity.
-- C1/C5 → ~220 µF: flat bass to 20 Hz (this harness's own finding, above).
+- **C2 ↔ C3 swap (#6):** the ready polarity fix *if* the bench confirms the capsule
+  is inverted — moves the driven leg to pin 3. Documented in `netlist.py`; do not
+  apply blind.
+- Bias re-tuning, or dropping in an official vendor zener model, then re-running
+  the 17 assertions.

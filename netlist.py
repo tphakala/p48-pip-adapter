@@ -2,10 +2,11 @@
 Authoritative netlist / footprint / placement description for the
 P48 -> 8V PIP adapter.
 
-This module is the single source of truth for connectivity.  The PCB builder
-(build_pcb.py) derives its output from the tables below, and the wired
-schematic (p48_pip_adapter.kicad_sch) mirrors the same connectivity, so the
-schematic and the board can never drift apart.
+This module is the single source of truth for connectivity.  The design is
+schematic-free: the PCB builder (build_pcb.py) synthesizes the board directly
+from the tables below, and the schematic figure (scripts/gen_schematic.py ->
+images/schematic.webp) is drawn from the same tables, so the schematic and the
+board can never drift apart.
 
 --------------------------------------------------------------------------
 Circuit derived from README.md architecture (impedance-balanced, 3 mA/pin):
@@ -122,8 +123,11 @@ NETS = {
     "NB3":    [("CB3","2"), ("RB3","1")],
 }
 
-# Nets carrying supply currents -> wider "Power" netclass.
-POWER_NETS = ["GND", "P2", "P3", "VPIP", "VREF"]
+# Supply nets that route as tracks get the wider "Power" netclass (issue #7,
+# consumed by build_pcb.patch_project_netclass).  GND is deliberately NOT here:
+# it is distributed as the solid In1.Cu/In2.Cu ground planes, not a track, so a
+# track-width class would not apply to it.
+POWER_NETS = ["P2", "P3", "VPIP", "VREF"]
 
 # ---------------------------------------------------------------------------
 # Board geometry + parametric placement.  Origin at top-left; +Y downward.
@@ -171,14 +175,18 @@ XLR_CLEARANCE = 3.5     # pin tip -> nearest component pad edge (mm); trimmed fr
                         # and offset the rev-E bypass parts (issue: keep length ~same)
 XLR_EDGE_GAP = 0.4      # pad connector-side edge -> board edge (copper clearance)
 
-# 18 SMD parts, ordered by signal flow, snaked into the two columns
+# 22 SMD parts, ordered by signal flow, snaked into the two columns
 # (row r: col0 = ORDER[2r], col1 = ORDER[2r+1]).  Grouped so connected parts
-# stay close: mic/Q2 input, then reference/regulator, then Q3 cold buffer.
+# stay close: mic/Q2 hot input + its emitter-bypass, then reference/regulator,
+# then the Q3 cold buffer + its emitter-bypass.  Each output stage's bypass
+# network (CBx/RBx) is placed IMMEDIATELY after its Qx/Rx so the Q2E/NB2 and
+# Q3E/NB3 loops stay short -- both a routing win (the P2/Q2E congestion that
+# otherwise splits the board) and a low-noise win (tight bypass loops).
 _ORDER = ["R10", "C2", "R3", "R4", "Q2", "R1",
+          "CB2", "RB2",                 # hot emitter-bypass, beside Q2/R1
           "R9", "D1", "C4", "R8", "Q1", "C1",
           "C5", "R6", "R7", "C3", "Q3", "R2",
-          # rev-E emitter-bypass network, placed near the XLR pads they feed
-          "CB2", "CB3", "RB2", "RB3"]
+          "CB3", "RB3"]                 # cold emitter-bypass, beside Q3/R2
 
 
 def _pad_h(ref):
