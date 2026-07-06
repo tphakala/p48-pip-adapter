@@ -24,8 +24,8 @@ CONN_ROTY = envf("CROTY", "0")      # roll about the connector axis
 CONN_ROTZ = envf("CROTZ", "0")
 CONN_Y    = envf("CY", "-24.5")     # connector position along the board axis
 CONN_Z    = envf("CZ", "0.4")       # board mid-plane
-CAM_AZ    = envf("AZ", "50")
-CAM_EL    = envf("EL", "27")
+CAM_AZ    = envf("AZ", "48")
+CAM_EL    = envf("EL", "42")
 SAMPLES   = int(envf("SPP", "220"))
 BODY_THR  = envf("BODYTHR", "0.62") # radial threshold for the black body band
 
@@ -83,7 +83,16 @@ R = (Matrix.Rotation(math.radians(CONN_ROTZ), 4, 'Z') @
      Matrix.Rotation(math.radians(CONN_ROTY), 4, 'Y') @
      Matrix.Rotation(math.radians(CONN_ROTX), 4, 'X'))
 conn.matrix_world = R @ conn.matrix_world
-conn.matrix_world = Matrix.Translation(Vector((0, CONN_Y, CONN_Z))) @ conn.matrix_world
+bpy.context.view_layer.update()
+# Auto-butt: centre on x=0 / z=board mid-plane, and push the connector so its
+# board-facing (cup) end tucks INSERT mm past the board's XLR edge -> no hover.
+BOARD_EDGE = -16.205
+INSERT = envf("INSERT", "2.0")
+clo, chi = world_bbox([conn])
+conn.matrix_world = Matrix.Translation(Vector(
+    (-(clo.x + chi.x) / 2,
+     (BOARD_EDGE + INSERT) - chi.y,
+     CONN_Z - (clo.z + chi.z) / 2))) @ conn.matrix_world
 def pbr(name, color, metallic, rough):
     mm = bpy.data.materials.new(name); mm.use_nodes = True
     bb = mm.node_tree.nodes["Principled BSDF"]
@@ -127,9 +136,15 @@ while hi < N - 1 and rad[hi + 1] >= thr:
 zlo = zmin + lo / N * (zmax - zmin)
 zhi = zmin + (hi + 1) / N * (zmax - zmin)
 me.materials.clear(); me.materials.append(BLACK); me.materials.append(GOLD)
+# gold ONLY on the mating-pin protrusion (the longer stub beyond the collar);
+# everything else -- collar body and solder-cup end -- stays black.
+if (zlo - zmin) >= (zmax - zhi):
+    is_gold = lambda zc: zc < zlo
+else:
+    is_gold = lambda zc: zc > zhi
 for p in me.polygons:
     zc = sum(vs[i].co.z for i in p.vertices) / len(p.vertices)
-    p.material_index = 0 if zlo <= zc <= zhi else 1
+    p.material_index = 1 if is_gold(zc) else 0
 me.update()
 bpy.context.view_layer.update()
 
