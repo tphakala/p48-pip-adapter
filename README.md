@@ -89,16 +89,15 @@ the board and the pad extends 3 mm past the pin tip so there's copper to hand-
 solder to. The pin tip keeps ≥ 5 mm clearance to the nearest component; the
 32.4 mm board length is *derived* from that constraint in `netlist.py`.
 
-The board plugs straight onto a bare 3-pin XLR insert — its pad end slots
-between the three contacts (two on the front face, one on the back), and the
-mating pins face the mixer. The 19 mm connector barrel is wider than the
-11.1 mm board, which is exactly why the board has to be this narrow.
+The board's thin edge slots straight **between** the three XLR pins — pins 1 & 2
+against the front (component) face, pin 3 against the back — with the pad end
+seated against the connector body and the mating pins left free for the mixer.
 
-![The board soldered onto a bare 3-pin XLR connector](images/board_with_connector.png)
+![The board slotted between the three pins of an XLR connector](images/board_with_connector.png)
 
-<sub>The XLR connector shown is a third-party reference model (Amphenol/ALPSR
-XB-XLR-CT3-3TX, via TraceParts), used here only to visualize the mount; it is
-not part of this design and is not redistributed.</sub>
+<sub>The bare pin insert is modelled at this board's actual XLR-pad positions
+(from `netlist.py`) to show the sandwich mount; the Neutrik NC3MXX STEP is one
+fused solid whose pins can't be isolated, so the pins are drawn to match.</sub>
 
 ## Schematic
 
@@ -187,10 +186,9 @@ python scripts/render_previews.py   # regenerate the images/ previews
 - **`gen_fittest.py`** — extracts the routed geometry into the fit-test STL.
 - **`scripts/render_previews.py`** — the preview images above, from the board
   (kicad-cli raytracer) and the fit-test STL (Blender).
-- **`scripts/render_connector.py`** — the board-on-connector render: exports the
-  board to GLB, imports a bare XLR connector model from `reference/` (`.3mf`
-  auto-converted by `tmf2stl.py`), and renders the pair in Blender. The
-  connector model is third-party and not shipped (see `reference/SOURCES.txt`).
+- **`scripts/render_connector.py`** — the sandwich-mount render: exports the
+  board to GLB and renders it in Blender between three modelled gold pins placed
+  at the board's real XLR-pad positions (no third-party connector model needed).
 - **`scripts/gen_schematic.py`** — the wired schematic image, drawn from
   `netlist.py` with schemdraw (SVG → PNG via Inkscape).
 

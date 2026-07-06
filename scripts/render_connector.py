@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Render images/board_with_connector.png: the routed board plugged into a real
-3-pin XLR connector.
+Render images/board_with_connector.png: the routed board slotted into a bare
+3-pin XLR pin insert, showing the sandwich mount -- pins 1 & 2 on the front
+(component) face, pin 3 on the back.
 
-The board is exported to GLB by kicad-cli; the connector is a third-party model
-you supply locally in reference/ (NOT redistributed with this repo -- see
-reference/SOURCES.txt).  Accepts either a converted reference/xlr_conn.stl or a
-reference/*.3mf (auto-converted with tmf2stl.py).  Blender renders the pair on a
-transparent film and the result is composited over a light-grey backdrop.
+The board is exported to GLB by kicad-cli; the pin insert + three gold pins are
+modelled in Blender at the board's real XLR-pad positions (netlist.py), so no
+third-party connector model is needed.  (The real Neutrik NC3MXX STEP is one
+fused solid whose pins can't be cleanly isolated, so the pins are modelled.)
+Blender renders on a transparent film and the result is composited over grey.
 
     python scripts/render_connector.py
 
-Tools auto-detected from PATH / common install dirs; override with the
-KICAD_CLI and BLENDER environment variables.
+Tools auto-detected from PATH / common install dirs; override with KICAD_CLI /
+BLENDER.  Camera via AZ / EL env vars.
 """
-import glob
 import os
 import shutil
 import subprocess
@@ -23,12 +23,8 @@ import tempfile
 
 from PIL import Image
 
-import tmf2stl
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOARD = os.path.join(ROOT, "p48_pip_adapter.kicad_pcb")
-REFDIR = os.path.join(ROOT, "reference")
-CONN_STL = os.path.join(REFDIR, "xlr_conn.stl")
 OUT = os.path.join(ROOT, "images", "board_with_connector.png")
 SCENE = os.path.join(ROOT, "scripts", "render_connector_blender.py")
 BG = (235, 235, 237)
@@ -52,22 +48,9 @@ BLENDER = find_tool("BLENDER", "blender",
                     r"C:\Program Files\Blender Foundation\Blender 5.1\blender.exe")
 
 
-def resolve_connector():
-    if os.path.exists(CONN_STL):
-        return CONN_STL
-    tmfs = glob.glob(os.path.join(REFDIR, "*.3mf"))
-    if tmfs:
-        print("converting", os.path.basename(tmfs[0]), "-> xlr_conn.stl")
-        tmf2stl.convert(tmfs[0], CONN_STL)
-        return CONN_STL
-    sys.exit("No connector model found. Place a 3-pin XLR .3mf (or xlr_conn.stl) "
-             "in reference/ -- see reference/SOURCES.txt.")
-
-
 def main():
     if not KCLI or not BLENDER:
         sys.exit("kicad-cli and Blender are required (set KICAD_CLI / BLENDER).")
-    conn = resolve_connector()
     tmp = tempfile.mkdtemp()
     try:
         glb = os.path.join(tmp, "board.glb")
@@ -76,7 +59,7 @@ def main():
                         "--include-silkscreen", "--include-soldermask",
                         "--subst-models", "--force", BOARD], check=True)
         raw = os.path.join(tmp, "raw.png")
-        subprocess.run([BLENDER, "-b", "-P", SCENE, "--", glb, conn, raw], check=True)
+        subprocess.run([BLENDER, "-b", "-P", SCENE, "--", glb, raw], check=True)
         fg = Image.open(raw).convert("RGBA")
         bg = Image.new("RGBA", fg.size, BG + (255,))
         bg.alpha_composite(fg)
