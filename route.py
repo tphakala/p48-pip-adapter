@@ -16,6 +16,7 @@ onto an already-routed board can leave stale inner-layer traces.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -90,6 +91,11 @@ def import_ses(board, ses_path):
                     board.GetNetInfo().GetNetItem(i)
                     for i in range(board.GetNetInfo().GetNetCount())}
 
+    # pre-placed stitch vias (from build_pcb) are already on the board; skip any
+    # SES via that re-lists them so they are not doubled (holes co-located).
+    existing_vias = [(v.GetPosition().x, v.GetPosition().y)
+                     for v in board.GetTracks() if isinstance(v, pcbnew.PCB_VIA)]
+
     n_tracks = n_vias = 0
     for net in _find(netout, "net"):
         name = net[1]
@@ -121,8 +127,14 @@ def import_ses(board, ses_path):
                 drl = int(pad.split(":")[1].split("_")[0]) * 1000
             except Exception:
                 pass
+            vx, vy = X(via[2]), Y(via[3])
+            # 50 µm tolerance: matches a re-emitted stitch via despite grid snap,
+            # yet far below the ~0.7 mm minimum spacing between distinct vias.
+            if any(abs(vx - ex) < 50000 and abs(vy - ey) < 50000
+                   for ex, ey in existing_vias):
+                continue                       # already placed as a stitch via
             v = pcbnew.PCB_VIA(board)
-            v.SetPosition(pcbnew.VECTOR2I(X(via[2]), Y(via[3])))
+            v.SetPosition(pcbnew.VECTOR2I(vx, vy))
             v.SetWidth(dia)
             v.SetDrill(drl)
             v.SetViaType(pcbnew.VIATYPE_THROUGH)
@@ -131,6 +143,44 @@ def import_ses(board, ses_path):
                 v.SetNet(netinfo)
             board.Add(v); n_vias += 1
     return n_tracks, n_vias
+
+
+# --------------------------------------------------------------------------- #
+# ground planes: confine routing to the outer layers, flood-fill after routing #
+# --------------------------------------------------------------------------- #
+def confine_routing_to_outer(dsn_path):
+    """Relabel the inner copper as Specctra 'power' layers so Freerouting keeps
+    signal routing on F.Cu + B.Cu and treats In1/In2 purely as the GND planes
+    exported as (plane GND ...).  This is what makes the inner layers stay solid
+    reference planes instead of getting chopped up by signal traces."""
+    with open(dsn_path, "r", encoding="utf-8") as f:
+        txt = f.read()
+    for inner in ("In1.Cu", "In2.Cu"):
+        txt = re.sub(r"(\(layer %s\s*\(type )signal" % re.escape(inner),
+                     r"\1power", txt)
+    with open(dsn_path, "w", encoding="utf-8") as f:
+        f.write(txt)
+
+
+def _net(board, name):
+    ni = board.GetNetInfo()
+    for i in range(ni.GetNetCount()):
+        n = ni.GetNetItem(i)
+        if n.GetNetname() == name:
+            return n
+    return None
+
+
+def add_outer_pours(board):
+    """Flood F.Cu + B.Cu with GND after routing and refill the inner planes so
+    all four layers clear the freshly imported copper.  Completes the on-board
+    Faraday cage; the pre-placed stitch vias tie every layer together."""
+    gnd = _net(board, "GND")
+    if gnd is None:
+        raise SystemExit("GND net not found -- cannot pour outer ground planes")
+    build_pcb.add_ground_zone(board, gnd, pcbnew.F_Cu)
+    build_pcb.add_ground_zone(board, gnd, pcbnew.B_Cu)
+    build_pcb.fill_all_zones(board)
 
 
 # --------------------------------------------------------------------------- #
@@ -166,15 +216,17 @@ def run_freerouting(max_passes):
 
 # --------------------------------------------------------------------------- #
 def main(max_passes=100):
-    build_pcb.main()                       # pristine unrouted board
+    build_pcb.main()                       # pristine board: parts + GND planes
     b = pcbnew.LoadBoard(BOARD)
     if not pcbnew.ExportSpecctraDSN(b, DSN):
         raise SystemExit("DSN export failed")
+    confine_routing_to_outer(DSN)          # In1/In2 stay solid GND planes
 
     run_freerouting(max_passes)
 
     b2 = pcbnew.LoadBoard(BOARD)
     nt, nv = import_ses(b2, SES)
+    add_outer_pours(b2)                     # flood F.Cu/B.Cu GND, refill planes
     b2.BuildConnectivity()
     b2.Save(BOARD)
 

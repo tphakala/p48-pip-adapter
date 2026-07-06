@@ -2,10 +2,11 @@
 Authoritative netlist / footprint / placement description for the
 P48 -> 8V PIP adapter.
 
-This module is the single source of truth for connectivity.  The PCB builder
-(build_pcb.py) derives its output from the tables below, and the wired
-schematic (p48_pip_adapter.kicad_sch) mirrors the same connectivity, so the
-schematic and the board can never drift apart.
+This module is the single source of truth for connectivity.  The design is
+schematic-free: the PCB builder (build_pcb.py) synthesizes the board directly
+from the tables below, and the schematic figure (scripts/gen_schematic.py ->
+images/schematic.webp) is drawn from the same tables, so the schematic and the
+board can never drift apart.
 
 --------------------------------------------------------------------------
 Circuit derived from README.md architecture (impedance-balanced, 3 mA/pin):
@@ -42,6 +43,7 @@ FP_SOD323  = ("Diode_SMD",          "D_SOD-323")
 FP_C1206   = ("Capacitor_SMD",      "C_1206_3216Metric")
 FP_C0805   = ("Capacitor_SMD",      "C_0805_2012Metric")
 FP_R0603   = ("Resistor_SMD",       "R_0603_1608Metric")
+FP_R1206   = ("Resistor_SMD",       "R_1206_3216Metric")   # R1/R2 thermal (issue #4)
 
 # Custom footprints are built inline by build_pcb.py.
 FP_XLR = ("custom", "XLR_SolderCup")   # 3 THT pads, Neutrik NC3MXX pin pitch
@@ -56,19 +58,43 @@ COMPONENTS = {
     "Q3":   ("MMBT3906", "Transistor_BJT:MMBT3906",      FP_SOT23),
     "D1":   ("8.2V",     "Device:D_Zener",               FP_SOD323),
     "C1":   ("22uF",     "Device:C",                     FP_C1206),
+    # C2 couples the capsule into Q2's base (signal path, only ~1 V DC across it):
+    # use X7R -- microphonics are the only concern (derating is negligible at 1 V);
+    # a film/polymer A/B before production is a nicety (issue #9).
+    # POLARITY (issue #6): sim is inverting; IF the bench capsule-polarity test
+    # confirms it, the zero-BOM-cost fix is to swap the base coupling here --
+    # move C2 to Q3B and C3 (the AC ground) to Q2B.  Do NOT apply blind.
     "C2":   ("22uF",     "Device:C",                     FP_C1206),
     "C3":   ("22uF",     "Device:C",                     FP_C1206),
-    "C4":   ("22uF",     "Device:C",                     FP_C1206),
+    "C4":   ("47uF",     "Device:C",                     FP_C1206),
     "C5":   ("10uF",     "Device:C",                     FP_C0805),
-    "R1":   ("10k",      "Device:R",                     FP_R0603),
-    "R2":   ("10k",      "Device:R",                     FP_R0603),
+    # R1/R2 in 1206, not 0603: each dissipates continuously inside the sealed
+    # XLR shell -- R1 = 67 mW (pin-2's full ~3 mA x 22.5 V), R2 = 50 mW.  1206's
+    # 250 mW rating leaves ~30% derated margin at 80 C ambient; a 0603 would run
+    # near its limit.  Matched package hot/cold for symmetry (issue #4).
+    "R1":   ("7.5k",     "Device:R",                     FP_R1206),
+    "R2":   ("10k",      "Device:R",                     FP_R1206),
     "R3":   ("100k",     "Device:R",                     FP_R0603),
     "R4":   ("100k",     "Device:R",                     FP_R0603),
     "R6":   ("100k",     "Device:R",                     FP_R0603),
     "R7":   ("100k",     "Device:R",                     FP_R0603),
-    "R8":   ("10k",      "Device:R",                     FP_R0603),
-    "R9":   ("100k",     "Device:R",                     FP_R0603),
+    "R8":   ("1k",       "Device:R",                     FP_R0603),
+    "R9":   ("47k",      "Device:R",                     FP_R0603),
     "R10":  ("6.8k",     "Device:R",                     FP_R0603),
+    # --- rev-E low-noise / low-Zout output buffer (issues #2, #11 + noise opt) --
+    # CB2/CB3 AC-bypass R1/R2 so the output is taken at Q2/Q3's low-Z emitters:
+    # Zout 10k->~80 ohm (in-band), level +21 dB, input-referred noise -34 dB.
+    # RB2/RB3 are the series stop resistors (capacitive-cable stability).
+    # NOTE: CB2/CB3 sit across ~23 V DC -> they MUST be 50 V rated; spec X7R.
+    # DC-bias derating (a 50 V X7R holds only ~12-17 uF at 23 V) raises the bass
+    # corner, but that is ACCEPTABLE here: some sub-50 Hz rolloff is desirable
+    # for this use case, so no oversizing/polymer is needed (issue #9).  Class-2
+    # MLCC are mildly microphonic -- a film/polymer A/B is a pre-production
+    # nicety only, not a blocker.
+    "CB2":  ("22uF",     "Device:C",                     FP_C1206),
+    "CB3":  ("22uF",     "Device:C",                     FP_C1206),
+    "RB2":  ("47",       "Device:R",                     FP_R0603),
+    "RB3":  ("47",       "Device:R",                     FP_R0603),
 }
 
 # Pad roles for reference (not consumed programmatically):
@@ -81,21 +107,27 @@ NETS = {
     "GND":    [("J1","1"), ("MIC1","2"), ("D1","2"), ("C4","2"), ("C5","2"),
                ("C1","2"), ("R4","2"), ("R7","2"), ("C3","2"),
                ("Q2","3"), ("Q3","3")],
-    "P2":     [("J1","2"), ("R1","1")],
-    "P3":     [("J1","3"), ("R9","1"), ("Q1","3"), ("R2","1")],
+    "P2":     [("J1","2"), ("R1","1"), ("RB2","2")],
+    "P3":     [("J1","3"), ("R9","1"), ("Q1","3"), ("R2","1"), ("RB3","2")],
     "VPIP":   [("Q1","2"), ("C5","1"), ("C1","1"), ("R10","1"),
                ("R3","1"), ("R6","1")],
     "VREF":   [("R9","2"), ("D1","1"), ("C4","1"), ("R8","1")],
     "Q1B":    [("R8","2"), ("Q1","1")],
     "MICOUT": [("MIC1","1"), ("R10","2"), ("C2","1")],
     "Q2B":    [("R3","2"), ("R4","1"), ("C2","2"), ("Q2","1")],
-    "Q2E":    [("R1","2"), ("Q2","2")],
+    "Q2E":    [("R1","2"), ("Q2","2"), ("CB2","1")],
     "Q3B":    [("R6","2"), ("R7","1"), ("C3","1"), ("Q3","1")],
-    "Q3E":    [("R2","2"), ("Q3","2")],
+    "Q3E":    [("R2","2"), ("Q3","2"), ("CB3","1")],
+    # emitter-bypass RC networks: Q2E -CB2- NB2 -RB2- P2  (and cold-side mirror)
+    "NB2":    [("CB2","2"), ("RB2","1")],
+    "NB3":    [("CB3","2"), ("RB3","1")],
 }
 
-# Nets carrying supply currents -> wider "Power" netclass.
-POWER_NETS = ["GND", "P2", "P3", "VPIP", "VREF"]
+# Supply nets that route as tracks get the wider "Power" netclass (issue #7,
+# consumed by build_pcb.patch_project_netclass).  GND is deliberately NOT here:
+# it is distributed as the solid In1.Cu/In2.Cu ground planes, not a track, so a
+# track-width class would not apply to it.
+POWER_NETS = ["P2", "P3", "VPIP", "VREF"]
 
 # ---------------------------------------------------------------------------
 # Board geometry + parametric placement.  Origin at top-left; +Y downward.
@@ -114,13 +146,15 @@ BOARD_T = 0.8           # THIN 4-layer: the edge must slip between the XLR pins
 
 # real KiCad courtyard (X, Y mm) -- for the informational overlap report
 COURTYARD = {
-    FP_R0603: (3.05, 1.55), FP_C1206: (4.69, 2.39), FP_C0805: (3.49, 2.05),
+    FP_R0603: (3.05, 1.55), FP_R1206: (4.65, 2.35),
+    FP_C1206: (4.69, 2.39), FP_C0805: (3.49, 2.05),
     FP_SOT23: (3.95, 3.49), FP_SOD323: (3.29, 1.99),
     FP_XLR: (9.8, 8.4), FP_MIC: (5.4, 2.0),
 }
 # real pad-copper extent (X, Y mm) -- the placer keeps these from overlapping
 PAD_EXTENT = {
-    FP_R0603: (2.45, 0.95), FP_C1206: (4.10, 1.80), FP_C0805: (2.90, 1.45),
+    FP_R0603: (2.45, 0.95), FP_R1206: (4.05, 1.75),
+    FP_C1206: (4.10, 1.80), FP_C0805: (2.90, 1.45),
     FP_SOT23: (3.35, 2.50), FP_SOD323: (2.70, 0.45),
     FP_XLR: (9.6, 8.0), FP_MIC: (5.0, 1.4),
 }
@@ -136,15 +170,23 @@ _PAD_GAP = 0.38         # copper-to-copper gap between stacked pads (assembly)
 XLR_PIN_LEN = 5.0       # internal Neutrik pin length along the board (mm)
 XLR_SOLDER_EXTRA = 3.0  # pad extends this far past the pin tip (solder access)
 XLR_PAD_LEN = XLR_PIN_LEN + XLR_SOLDER_EXTRA          # 8 mm solder pad
-XLR_CLEARANCE = 5.0     # pin tip -> nearest component pad edge (mm)
+XLR_CLEARANCE = 3.5     # pin tip -> nearest component pad edge (mm); trimmed from
+                        # 5.0 (turnkey PCBA, not hand-solder) to reclaim ~1.5 mm
+                        # and offset the rev-E bypass parts (issue: keep length ~same)
 XLR_EDGE_GAP = 0.4      # pad connector-side edge -> board edge (copper clearance)
 
-# 18 SMD parts, ordered by signal flow, snaked into the two columns
+# 22 SMD parts, ordered by signal flow, snaked into the two columns
 # (row r: col0 = ORDER[2r], col1 = ORDER[2r+1]).  Grouped so connected parts
-# stay close: mic/Q2 input, then reference/regulator, then Q3 cold buffer.
+# stay close: mic/Q2 hot input + its emitter-bypass, then reference/regulator,
+# then the Q3 cold buffer + its emitter-bypass.  Each output stage's bypass
+# network (CBx/RBx) is placed IMMEDIATELY after its Qx/Rx so the Q2E/NB2 and
+# Q3E/NB3 loops stay short -- both a routing win (the P2/Q2E congestion that
+# otherwise splits the board) and a low-noise win (tight bypass loops).
 _ORDER = ["R10", "C2", "R3", "R4", "Q2", "R1",
+          "CB2", "RB2",                 # hot emitter-bypass, beside Q2/R1
           "R9", "D1", "C4", "R8", "Q1", "C1",
-          "C5", "R6", "R7", "C3", "Q3", "R2"]
+          "C5", "R6", "R7", "C3", "Q3", "R2",
+          "CB3", "RB3"]                 # cold emitter-bypass, beside Q3/R2
 
 
 def _pad_h(ref):

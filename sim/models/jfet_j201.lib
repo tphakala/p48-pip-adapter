@@ -1,0 +1,18 @@
+* ---------------------------------------------------------------------------
+* J201  -  N-channel JFET  (capsule stand-in, NOT a board component)
+* ---------------------------------------------------------------------------
+* Used only as a proxy for the electret capsule's internal common-source JFET
+* buffer, so the harness can inject an audio-band test signal at MICOUT with a
+* realistic ~low-Idss, low-pinch-off characteristic.  The real AOM-5024 capsule
+* is a 2-terminal electret; its exact transconductance is not modelled here and
+* absolute gain figures depend on it (see issue #2 / issue #6 bench notes).
+*
+* Source: Vishay/Siliconix J201 SPICE model (standard public parameter set,
+*         also shipped in the LTspice standard JFET library).
+* ---------------------------------------------------------------------------
+* (isr/nr/alpha/vk from the original PSpice card are not ngspice NJF params and
+*  are dropped to silence "unrecognized parameter" warnings; they don't affect
+*  the DC / audio-band behaviour used here.)
+.model J201 NJF(Beta=1.28m Betatce=-.5 Rd=1 Rs=1 Lambda=2.5m Vto=-.5
++ Vtotc=-2.5m Is=33.57f Cgd=3.5p M=.3622 Pb=1 Fc=.5 Cgs=4.6p
++ Kf=9.109E-18 Af=1)

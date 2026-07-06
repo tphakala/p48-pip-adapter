@@ -15,6 +15,7 @@ capsule are through-hole (inserted from the top).  Inner/bottom copper is used
 for routing only.
 """
 import json
+import math
 import os
 import sys
 
@@ -155,6 +156,133 @@ def add_edge_keepout(board):
         board.Add(z)
 
 
+# --------------------------------------------------------------------------- #
+# ground planes + stitching (issue #1: a real 4-layer shield, not empty inner  #
+# copper).  In1.Cu + In2.Cu become solid GND reference planes; F.Cu + B.Cu are #
+# flooded with GND after routing.  All four are tied together (and to the XLR   #
+# pin-1 ground) by a grid of through vias so the µV front-end sits inside an    #
+# on-board Faraday cage that backs up the grounded zinc shell.                  #
+# --------------------------------------------------------------------------- #
+def add_ground_zone(board, net, layer, remove_islands=True):
+    """A board-filling GND copper zone on one layer.  The edge-keepout rule
+    areas hold it EDGE_KEEPOUT off the board edge; a solid pad connection (no
+    thermal spokes) keeps the plane low-impedance and sidesteps starved-thermal
+    DRC.  Isolated islands are dropped so no floating copper is left behind."""
+    z = pcbnew.ZONE(board)
+    z.SetLayer(layer)
+    z.SetNet(net)
+    z.SetAssignedPriority(0)
+    z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+    z.SetMinThickness(MM(0.13))
+    if remove_islands and hasattr(z, "SetIslandRemovalMode"):
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+    op = z.Outline()
+    op.NewOutline()
+    for (x, y) in [(0, 0), (NL.BOARD_W, 0), (NL.BOARD_W, NL.BOARD_L), (0, NL.BOARD_L)]:
+        op.Append(V(x, y))
+    board.Add(z)
+    return z
+
+
+def fill_all_zones(board):
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+
+
+def ground_via_sites(place):
+    """Clear GND stitching-via locations: a grid filtered against the real
+    pad-copper extents (+ clearance) and the edge keepout, so a via never
+    touches a pad.  The dense two-column placement leaves the board's centre
+    corridor open, so the stitch grid lands there, tying the planes together."""
+    half = 0.3 + EDGE_RULE / 2.0        # 0.6 mm via radius + a clearance margin
+    W, L = NL.BOARD_W, NL.BOARD_L
+    obstacles = [_aabb(NL.PAD_EXTENT, r, *p) for r, p in place.items()]
+    sites = []
+    y = 3.5
+    while y <= L - 3.5 + 1e-9:
+        x = 1.0
+        while x <= W - 1.0 + 1e-9:
+            inside = (EDGE_KEEPOUT + half <= x <= W - EDGE_KEEPOUT - half and
+                      EDGE_KEEPOUT + half <= y <= L - EDGE_KEEPOUT - half)
+            vx0, vy0, vx1, vy1 = x - half, y - half, x + half, y + half
+            clear = inside and all(
+                not (vx0 < bx1 and bx0 < vx1 and vy0 < by1 and by0 < vy1)
+                for (bx0, by0, bx1, by1) in obstacles)
+            if clear:
+                sites.append((round(x, 3), round(y, 3)))
+            x += 0.8
+        y += 2.0
+    return sites
+
+
+def _add_via(board, net, x, y):
+    v = pcbnew.PCB_VIA(board)
+    v.SetPosition(V(x, y))
+    v.SetWidth(MM(0.6))
+    v.SetDrill(MM(0.3))
+    v.SetViaType(pcbnew.VIATYPE_THROUGH)
+    v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
+    v.SetNet(net)
+    board.Add(v)
+
+
+def add_stitching_vias(board, net, place):
+    n = 0
+    for (x, y) in ground_via_sites(place):
+        _add_via(board, net, x, y)
+        n += 1
+    return n
+
+
+def _via_positions_mm(board):
+    return [(pcbnew.ToMM(v.GetPosition().x), pcbnew.ToMM(v.GetPosition().y))
+            for v in board.GetTracks() if isinstance(v, pcbnew.PCB_VIA)]
+
+
+def add_gnd_pad_fanout(board, net, fps, place):
+    """Drop a GND via right beside every GND SMD pad so it reaches the In1/In2
+    planes directly.  GND connectivity then no longer depends on the F.Cu/B.Cu
+    pour being one contiguous piece, and Freerouting is freed from routing GND
+    at all.  THT / large connector pads already span every layer, so skip them.
+    A ring search picks the nearest pad-clear, edge-clear, via-clear spot."""
+    half = 0.3 + EDGE_RULE / 2.0
+    W, L = NL.BOARD_W, NL.BOARD_L
+    obstacles = [_aabb(NL.PAD_EXTENT, r, *p) for r, p in place.items()]
+    vias = _via_positions_mm(board)
+    placed = 0
+    for ref, padnum in NL.NETS["GND"]:
+        if ref in ("J1", "MIC1"):
+            continue
+        fp = fps.get(ref)
+        pad = fp.FindPadByNumber(padnum) if fp else None
+        if pad is None:
+            continue                       # missing footprint/pad -> skip, no crash
+        px, py = pcbnew.ToMM(pad.GetPosition().x), pcbnew.ToMM(pad.GetPosition().y)
+        if any(math.hypot(px - ex, py - ey) < 1.2 for ex, ey in vias):
+            continue                       # a stitch via already serves this pad
+        spot = None
+        for rad in (0.7, 0.95, 1.2, 1.5, 1.8):
+            for k in range(12):
+                ang = k * math.pi / 6.0
+                x, y = px + rad * math.cos(ang), py + rad * math.sin(ang)
+                if not (EDGE_KEEPOUT + half <= x <= W - EDGE_KEEPOUT - half and
+                        EDGE_KEEPOUT + half <= y <= L - EDGE_KEEPOUT - half):
+                    continue
+                vx0, vy0, vx1, vy1 = x - half, y - half, x + half, y + half
+                if any(math.hypot(x - ex, y - ey) < 0.7 for ex, ey in vias):
+                    continue
+                if all(not (vx0 < bx1 and bx0 < vx1 and vy0 < by1 and by0 < vy1)
+                       for (bx0, by0, bx1, by1) in obstacles):
+                    spot = (x, y)
+                    break
+            if spot:
+                break
+        if spot:
+            _add_via(board, net, *spot)
+            vias.append(spot)
+            placed += 1
+    return placed
+
+
 # KiCad 10 default DRC severities, with courtyards_overlap downgraded: on this
 # 11.1 mm board the four 1206 caps' courtyards (assembly keep-out margins, not
 # copper) unavoidably overlap.  Copper rules (shorting_items, clearance,
@@ -199,12 +327,42 @@ _SEVERITIES = {
 def patch_project_severities():
     pro = os.path.join(HERE, "p48_pip_adapter.kicad_pro")
     try:
-        cfg = json.load(open(pro))
+        with open(pro, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
     except (OSError, ValueError):
         return
     ds = cfg.setdefault("board", {}).setdefault("design_settings", {})
     ds["rule_severities"] = dict(_SEVERITIES)
-    json.dump(cfg, open(pro, "w"), indent=2)
+    with open(pro, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+
+# Issue #7: a real "Power" netclass (0.25 mm track) for the supply nets, so the
+# documented feature exists in the artifact.  KiCad 10 stores netclasses in the
+# PROJECT file, and route.py reloads the board (LoadBoard reads the project), so
+# the class must be persisted here to survive into the Specctra DSN export.
+POWER_TRACK_MM = 0.25
+
+
+def patch_project_netclass():
+    pro = os.path.join(HERE, "p48_pip_adapter.kicad_pro")
+    try:
+        with open(pro, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        return
+    ns = cfg.setdefault("net_settings", {})
+    classes = [c for c in ns.get("classes", []) if c.get("name") != "Power"]
+    default = next((c for c in classes if c.get("name") == "Default"), {})
+    power = dict(default)                       # inherit via/clearance defaults
+    power.update({"name": "Power", "track_width": POWER_TRACK_MM,
+                  "clearance": 0.125, "priority": 0})
+    classes.append(power)
+    ns["classes"] = classes
+    ns["netclass_patterns"] = [{"netclass": "Power", "pattern": n}
+                               for n in NL.POWER_NETS]
+    with open(pro, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
 
 
 def main():
@@ -284,9 +442,21 @@ def main():
 
     add_edge_keepout(board)
 
+    # issue #1: solid inner GND reference planes + a through-via stitch grid.
+    # F.Cu/B.Cu are flooded with GND after routing (route.add_outer_pours);
+    # here we lay the inner planes and the stitching so Freerouting routes
+    # around fixed GND vias and the planes are never left floating.
+    gnd = nets["GND"]
+    add_ground_zone(board, gnd, pcbnew.In1_Cu)
+    add_ground_zone(board, gnd, pcbnew.In2_Cu)
+    n_stitch = add_stitching_vias(board, gnd, place)
+    n_fanout = add_gnd_pad_fanout(board, gnd, fps, place)
+    fill_all_zones(board)
+
     board.BuildListOfNets()
     board.Save(OUT)
     patch_project_severities()
+    patch_project_netclass()
 
     # report
     print("Saved:", OUT)
@@ -294,6 +464,8 @@ def main():
     print("Footprints:", len(fps), "| all on top:",
           not any(fp.IsFlipped() for fp in fps.values()))
     print("Nets:", len(NL.NETS), "->", sorted(NL.NETS))
+    print("GND planes: In1.Cu + In2.Cu (solid) | stitch vias:", n_stitch,
+          "| pad-fanout vias:", n_fanout)
     print("Pad-overlap check: PASS (no shorts) | courtyard overlaps:",
           len(court_overlaps), "(accepted, silk keep-out margins)")
 

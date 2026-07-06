@@ -1,0 +1,39 @@
+* ---------------------------------------------------------------------------
+* BZX84C8V2  -  8.2 V, 250 mW voltage-regulator (zener) diode, SOT-23
+* ---------------------------------------------------------------------------
+* Datasheet-DERIVED model (not a vendor .lib file -- Nexperia does not publish a
+* downloadable SPICE model for this part; the automated vendor download
+* endpoints block scripted access).  Parameters are fitted to the published
+* characteristics so the reverse (breakdown) curve matches the datasheet,
+* which is exactly what issue #3 needs to be trusted.
+*
+* Source: Nexperia "BZX84 series - Voltage regulator diodes", Product data
+*         sheet Rev. 7, 1 January 2023.  Table 8, row BZX84-C8V2:
+*         https://assets.nexperia.com/documents/data-sheet/BZX84_SER.pdf
+*
+* Datasheet points used for the fit (Tj = 25 C):
+*   Vz          = 7.70 .. 8.70 V   (nominal 8.2 V) at Iz = 5 mA (test current)
+*   rdif (max)  = 15 ohm  at Iz = 5 mA
+*   rdif (max)  = 80 ohm  at Iz = 1 mA        <- the soft knee
+*   IR          = 0.7 uA  at VR = 5 V
+*   Cd          = 150 pF  at VR = 0 V, f = 1 MHz
+*   Ptot        = 250 mW,  VF <= 0.9 V at IF = 10 mA
+*
+* Fit rationale:
+*   In the ngspice breakdown region  I = -IBV*exp(-(BV+V)/(NBV*Vt))  the dynamic
+*   resistance is  rdif ~= RS + NBV*Vt/Iz.  NBV=2.9, RS=0.5 gives
+*       rdif(5 mA) ~= 15.5 ohm   and   rdif(1 mA) ~= 75 ohm   (both <= max),
+*   and reproduces the soft knee: rdif(190 uA) ~= 410 ohm, so Vz sags to
+*       Vz(190 uA) ~= 8.2 + NBV*Vt*ln(0.19/5) ~= 7.95 V.
+*   Calibrating IBV at the 5 mA datasheet test current pins Vz = BV = 8.2 V
+*   there, so the whole curve is anchored to the datasheet test condition.
+*   This is the point of issue #3: a generic D(BV=8.2) calibrated at 5 mA with
+*   the default sharp knee would read Vz ~= 8.2 V at 190 uA and be wrong.
+*
+* SANITY CHECK the run: op-point I(D1) should be ~190 uA and V(VREF) ~7.9-8.0 V.
+* If you obtain the official vendor .lib later, drop it in and re-run; the deck
+* only references the model name "BZX84C8V2".
+* ---------------------------------------------------------------------------
+.model BZX84C8V2 D(
++ IS=1e-14 N=1 RS=0.5 CJO=150p VJ=0.75 M=0.33 TT=1n
++ BV=8.2 IBV=5m NBV=2.9 )
