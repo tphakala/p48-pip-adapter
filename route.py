@@ -128,7 +128,9 @@ def import_ses(board, ses_path):
             except Exception:
                 pass
             vx, vy = X(via[2]), Y(via[3])
-            if any(abs(vx - ex) < 1000 and abs(vy - ey) < 1000
+            # 50 µm tolerance: matches a re-emitted stitch via despite grid snap,
+            # yet far below the ~0.7 mm minimum spacing between distinct vias.
+            if any(abs(vx - ex) < 50000 and abs(vy - ey) < 50000
                    for ex, ey in existing_vias):
                 continue                       # already placed as a stitch via
             v = pcbnew.PCB_VIA(board)
@@ -151,11 +153,13 @@ def confine_routing_to_outer(dsn_path):
     signal routing on F.Cu + B.Cu and treats In1/In2 purely as the GND planes
     exported as (plane GND ...).  This is what makes the inner layers stay solid
     reference planes instead of getting chopped up by signal traces."""
-    txt = open(dsn_path).read()
+    with open(dsn_path, "r", encoding="utf-8") as f:
+        txt = f.read()
     for inner in ("In1.Cu", "In2.Cu"):
         txt = re.sub(r"(\(layer %s\s*\(type )signal" % re.escape(inner),
                      r"\1power", txt)
-    open(dsn_path, "w").write(txt)
+    with open(dsn_path, "w", encoding="utf-8") as f:
+        f.write(txt)
 
 
 def _net(board, name):
@@ -172,6 +176,8 @@ def add_outer_pours(board):
     all four layers clear the freshly imported copper.  Completes the on-board
     Faraday cage; the pre-placed stitch vias tie every layer together."""
     gnd = _net(board, "GND")
+    if gnd is None:
+        raise SystemExit("GND net not found -- cannot pour outer ground planes")
     build_pcb.add_ground_zone(board, gnd, pcbnew.F_Cu)
     build_pcb.add_ground_zone(board, gnd, pcbnew.B_Cu)
     build_pcb.fill_all_zones(board)

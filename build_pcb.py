@@ -252,7 +252,10 @@ def add_gnd_pad_fanout(board, net, fps, place):
     for ref, padnum in NL.NETS["GND"]:
         if ref in ("J1", "MIC1"):
             continue
-        pad = fps[ref].FindPadByNumber(padnum)
+        fp = fps.get(ref)
+        pad = fp.FindPadByNumber(padnum) if fp else None
+        if pad is None:
+            continue                       # missing footprint/pad -> skip, no crash
         px, py = pcbnew.ToMM(pad.GetPosition().x), pcbnew.ToMM(pad.GetPosition().y)
         if any(math.hypot(px - ex, py - ey) < 1.2 for ex, ey in vias):
             continue                       # a stitch via already serves this pad
@@ -324,12 +327,14 @@ _SEVERITIES = {
 def patch_project_severities():
     pro = os.path.join(HERE, "p48_pip_adapter.kicad_pro")
     try:
-        cfg = json.load(open(pro))
+        with open(pro, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
     except (OSError, ValueError):
         return
     ds = cfg.setdefault("board", {}).setdefault("design_settings", {})
     ds["rule_severities"] = dict(_SEVERITIES)
-    json.dump(cfg, open(pro, "w"), indent=2)
+    with open(pro, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
 
 
 # Issue #7: a real "Power" netclass (0.25 mm track) for the supply nets, so the
@@ -342,7 +347,8 @@ POWER_TRACK_MM = 0.25
 def patch_project_netclass():
     pro = os.path.join(HERE, "p48_pip_adapter.kicad_pro")
     try:
-        cfg = json.load(open(pro))
+        with open(pro, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
     except (OSError, ValueError):
         return
     ns = cfg.setdefault("net_settings", {})
@@ -355,7 +361,8 @@ def patch_project_netclass():
     ns["classes"] = classes
     ns["netclass_patterns"] = [{"netclass": "Power", "pattern": n}
                                for n in NL.POWER_NETS]
-    json.dump(cfg, open(pro, "w"), indent=2)
+    with open(pro, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
 
 
 def main():

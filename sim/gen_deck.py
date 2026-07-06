@@ -43,7 +43,9 @@ def pin_to_net():
 
 
 def spice_value(v):
-    """KiCad value string -> SPICE numeric suffix ('22uF'->'22u', '10k'->'10k')."""
+    """KiCad value string -> SPICE numeric suffix ('22uF'->'22u', '10k'->'10k').
+    Normalize the micro sign to ASCII 'u' -- ngspice does not accept 'µ'."""
+    v = v.replace("µ", "u").replace("μ", "u")
     return v[:-1] if v.endswith("F") else v
 
 
