@@ -5,7 +5,9 @@ board for high-sensitivity electret condenser capsules such as the PUI Audio
 **AOM-5024**. The whole circuit lives on a **11.1 × 32.4 × 0.8 mm** four-layer
 PCB thin enough to slip *between* the pins of a Neutrik **NC3MXX** male XLR and
 solder to them directly, so a two-wire electret becomes a self-contained,
-buffered, impedance-balanced phantom mic with nothing hanging off the back.
+buffered, impedance-balanced phantom mic with nothing hanging off the back. It
+runs on standard phantom power from any mixer, audio interface (such as a
+Focusrite Scarlett), or field recorder.
 
 ![Populated adapter board](images/board_hero.webp)
 
@@ -54,9 +56,10 @@ board fakes a balanced line the preamp can't tell from the real thing:
 
 ### 3. DC current balancing
 
-The circuit pulls roughly **3 mA per pin**, keeping the mixer's input
-transformer happy: pin 2 feeds the hot buffer (Q2); pin 3 feeds the cold
-buffer (Q3) plus the regulator.
+The circuit pulls roughly **3 mA per pin**, a balanced DC draw that suits any
+balanced input, whether electronically balanced (most audio interfaces and
+modern preamps) or transformer-coupled: pin 2 feeds the hot buffer (Q2); pin 3
+feeds the cold buffer (Q3) plus the regulator.
 
 ## The board
 
@@ -92,7 +95,7 @@ solder to. The pin tip keeps ≥ 5 mm clearance to the nearest component; the
 
 The board's thin edge slots straight **between** the three XLR pins (pins 1 & 2
 against the front component face, pin 3 against the back), with the pad end
-seated against the connector body and the mating pins left free for the mixer.
+seated against the connector body and the mating pins left free for the preamp.
 
 ![The board slotted between the three pins of an XLR connector](images/board_with_connector.webp)
 
