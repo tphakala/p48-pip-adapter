@@ -6,6 +6,13 @@ power adapter generated from [`netlist.py`](netlist.py). See
 manufacturing, fit test). This file records **where the numbers came from** and
 why the layout is shaped the way it is.
 
+> **Status — rev-E (board respin pending):** `netlist.py` is now the rev-E
+> low-noise design (emitter-bypass buffer CB2/CB3+RB2/RB3, R8→1k, R9→47k,
+> R1→7.5k, C4→47µF, XLR_CLEARANCE 3.5 mm), verified by the `sim/` harness. The
+> netlist table and derivation below, and the board + schematic, still describe
+> the previous rev — the board respin and doc refresh are pending (git.koti
+> issues #1/#4/#7/#8).
+
 ## Netlist provenance
 
 The schematic originally delivered with the design carried **no connectivity**.

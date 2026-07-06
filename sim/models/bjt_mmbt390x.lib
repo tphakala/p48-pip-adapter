@@ -1,0 +1,26 @@
+* ---------------------------------------------------------------------------
+* MMBT3904 (NPN) / MMBT3906 (PNP)  -  general-purpose BJTs, SOT-23
+* ---------------------------------------------------------------------------
+* The MMBT390x are the SOT-23 packaging of the 2N390x die.  Per issue #10 the
+* classic 2N3904/2N3906 Gummel-Poon models are accepted stand-ins (same die,
+* different package).  These are the canonical onsemi/Motorola PSpice models,
+* shipped verbatim in essentially every SPICE distribution.
+*
+* Source: onsemi "2N3903, 2N3904" and "2N3906" data sheets / PSpice model
+*         libraries (Motorola process, model rev 1995-07).  Identical text is
+*         mirrored in the ngspice, LTspice and KiCad standard model sets.
+*
+* Package note: MMBT390x adds a little lead/junction capacitance vs the TO-92
+* 2N390x, negligible for the DC bias, output-impedance and audio-band AC work
+* this deck performs.
+* ---------------------------------------------------------------------------
+
+.model MMBT3904 NPN(IS=6.734f XTI=3 EG=1.11 VAF=74.03 BF=416.4 NE=1.259
++ ISE=6.734f IKF=66.78m XTB=1.5 BR=.7371 NC=2 ISC=0 IKR=0 RC=1
++ CJC=3.638p MJC=.3085 VJC=.75 FC=.5 CJE=4.493p MJE=.2593 VJE=.75
++ TR=239.5n TF=301.2p ITF=.4 VTF=4 XTF=2 RB=10)
+
+.model MMBT3906 PNP(IS=1.41f XTI=3 EG=1.11 VAF=18.7 BF=180.7 NE=1.5
++ ISE=0 IKF=80m XTB=1.5 BR=4.977 NC=2 ISC=0 IKR=0 RC=2.5 CJC=9.728p
++ MJC=.5776 VJC=.75 FC=.5 CJE=8.063p MJE=.3677 VJE=.75 TR=33.42n
++ TF=179.3p ITF=.4 VTF=4 XTF=6 RB=10)

@@ -58,17 +58,26 @@ COMPONENTS = {
     "C1":   ("22uF",     "Device:C",                     FP_C1206),
     "C2":   ("22uF",     "Device:C",                     FP_C1206),
     "C3":   ("22uF",     "Device:C",                     FP_C1206),
-    "C4":   ("22uF",     "Device:C",                     FP_C1206),
+    "C4":   ("47uF",     "Device:C",                     FP_C1206),
     "C5":   ("10uF",     "Device:C",                     FP_C0805),
-    "R1":   ("10k",      "Device:R",                     FP_R0603),
+    "R1":   ("7.5k",     "Device:R",                     FP_R0603),
     "R2":   ("10k",      "Device:R",                     FP_R0603),
     "R3":   ("100k",     "Device:R",                     FP_R0603),
     "R4":   ("100k",     "Device:R",                     FP_R0603),
     "R6":   ("100k",     "Device:R",                     FP_R0603),
     "R7":   ("100k",     "Device:R",                     FP_R0603),
-    "R8":   ("10k",      "Device:R",                     FP_R0603),
-    "R9":   ("100k",     "Device:R",                     FP_R0603),
+    "R8":   ("1k",       "Device:R",                     FP_R0603),
+    "R9":   ("47k",      "Device:R",                     FP_R0603),
     "R10":  ("6.8k",     "Device:R",                     FP_R0603),
+    # --- rev-E low-noise / low-Zout output buffer (issues #2, #11 + noise opt) --
+    # CB2/CB3 AC-bypass R1/R2 so the output is taken at Q2/Q3's low-Z emitters:
+    # Zout 10k->~80 ohm, level +21 dB, input-referred noise -34 dB, flat bass.
+    # RB2/RB3 are the series stop resistors (capacitive-cable stability).
+    # NOTE: CB2/CB3 sit across ~25 V DC -> they MUST be 50 V rated.
+    "CB2":  ("22uF",     "Device:C",                     FP_C1206),
+    "CB3":  ("22uF",     "Device:C",                     FP_C1206),
+    "RB2":  ("47",       "Device:R",                     FP_R0603),
+    "RB3":  ("47",       "Device:R",                     FP_R0603),
 }
 
 # Pad roles for reference (not consumed programmatically):
@@ -81,17 +90,20 @@ NETS = {
     "GND":    [("J1","1"), ("MIC1","2"), ("D1","2"), ("C4","2"), ("C5","2"),
                ("C1","2"), ("R4","2"), ("R7","2"), ("C3","2"),
                ("Q2","3"), ("Q3","3")],
-    "P2":     [("J1","2"), ("R1","1")],
-    "P3":     [("J1","3"), ("R9","1"), ("Q1","3"), ("R2","1")],
+    "P2":     [("J1","2"), ("R1","1"), ("RB2","2")],
+    "P3":     [("J1","3"), ("R9","1"), ("Q1","3"), ("R2","1"), ("RB3","2")],
     "VPIP":   [("Q1","2"), ("C5","1"), ("C1","1"), ("R10","1"),
                ("R3","1"), ("R6","1")],
     "VREF":   [("R9","2"), ("D1","1"), ("C4","1"), ("R8","1")],
     "Q1B":    [("R8","2"), ("Q1","1")],
     "MICOUT": [("MIC1","1"), ("R10","2"), ("C2","1")],
     "Q2B":    [("R3","2"), ("R4","1"), ("C2","2"), ("Q2","1")],
-    "Q2E":    [("R1","2"), ("Q2","2")],
+    "Q2E":    [("R1","2"), ("Q2","2"), ("CB2","1")],
     "Q3B":    [("R6","2"), ("R7","1"), ("C3","1"), ("Q3","1")],
-    "Q3E":    [("R2","2"), ("Q3","2")],
+    "Q3E":    [("R2","2"), ("Q3","2"), ("CB3","1")],
+    # emitter-bypass RC networks: Q2E -CB2- NB2 -RB2- P2  (and cold-side mirror)
+    "NB2":    [("CB2","2"), ("RB2","1")],
+    "NB3":    [("CB3","2"), ("RB3","1")],
 }
 
 # Nets carrying supply currents -> wider "Power" netclass.
@@ -136,7 +148,9 @@ _PAD_GAP = 0.38         # copper-to-copper gap between stacked pads (assembly)
 XLR_PIN_LEN = 5.0       # internal Neutrik pin length along the board (mm)
 XLR_SOLDER_EXTRA = 3.0  # pad extends this far past the pin tip (solder access)
 XLR_PAD_LEN = XLR_PIN_LEN + XLR_SOLDER_EXTRA          # 8 mm solder pad
-XLR_CLEARANCE = 5.0     # pin tip -> nearest component pad edge (mm)
+XLR_CLEARANCE = 3.5     # pin tip -> nearest component pad edge (mm); trimmed from
+                        # 5.0 (turnkey PCBA, not hand-solder) to reclaim ~1.5 mm
+                        # and offset the rev-E bypass parts (issue: keep length ~same)
 XLR_EDGE_GAP = 0.4      # pad connector-side edge -> board edge (copper clearance)
 
 # 18 SMD parts, ordered by signal flow, snaked into the two columns
@@ -144,7 +158,9 @@ XLR_EDGE_GAP = 0.4      # pad connector-side edge -> board edge (copper clearanc
 # stay close: mic/Q2 input, then reference/regulator, then Q3 cold buffer.
 _ORDER = ["R10", "C2", "R3", "R4", "Q2", "R1",
           "R9", "D1", "C4", "R8", "Q1", "C1",
-          "C5", "R6", "R7", "C3", "Q3", "R2"]
+          "C5", "R6", "R7", "C3", "Q3", "R2",
+          # rev-E emitter-bypass network, placed near the XLR pads they feed
+          "CB2", "CB3", "RB2", "RB3"]
 
 
 def _pad_h(ref):
