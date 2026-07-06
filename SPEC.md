@@ -1,4 +1,4 @@
-# P48 → 8 V PIP adapter — design notes
+# P48 → 8 V PIP adapter: design notes
 
 Engineering and provenance notes for the miniature phantom-power to plug-in-
 power adapter generated from [`netlist.py`](netlist.py). See
@@ -15,7 +15,7 @@ single source of truth in `netlist.py`. Both the board (`build_pcb.py`) and the
 wired schematic (`p48_pip_adapter.kicad_sch`) derive from it, so they can never
 drift apart.
 
-Component **values are nominal** — they follow from the topology and typical
+Component **values are nominal**: they follow from the topology and typical
 practice, not from a bench-tuned prototype. Bias values in particular may want
 tuning before a production run; the topology is what drives layout and routing.
 
@@ -24,8 +24,8 @@ tuning before a production run; the topology is what drives layout and routing.
 | Net | Connections (ref.pad) | Function |
 | :-- | :-- | :-- |
 | **GND** | J1.1, MIC1.2, D1.A, C1.2, C3.2, C4.2, C5.2, R4.2, R7.2, Q2.C, Q3.C | XLR pin 1 / 0 V |
-| **P2** | J1.2, R1.1 | XLR pin 2 (hot) — Q2 draws ~3 mA |
-| **P3** | J1.3, R9.1, Q1.C, R2.1 | XLR pin 3 (cold) — Q3 + regulator draw ~3 mA |
+| **P2** | J1.2, R1.1 | XLR pin 2 (hot), Q2 draws ~3 mA |
+| **P3** | J1.3, R9.1, Q1.C, R2.1 | XLR pin 3 (cold), Q3 + regulator draw ~3 mA |
 | **VPIP** | Q1.E, C1.1, C5.1, R10.1, R3.1, R6.1 | ~7.5 V plug-in-power rail |
 | **VREF** | R9.2, D1.K, C4.1, R8.1 | filtered 8.2 V Zener reference |
 | **Q1B** | R8.2, Q1.B | regulator base (buffered VREF) |
@@ -41,12 +41,12 @@ D_Zener pad 1 = K (cathode), 2 = A (anode); R/C pads 1, 2.
 ### Circuit derivation
 
 **Reference / PIP supply** (fed from XLR pin 3, the "cold/quiet" pin):
-`P3 —R9(100k)→ VREF`; D1 (8.2 V Zener) clamps VREF to GND; C4 (22 µF) filters it
-(R9·C4 ≈ 0.07 Hz — sub-1 Hz). Q1 (NPN) is an emitter follower: base = VREF via
+`P3 → R9(100k) → VREF`; D1 (8.2 V Zener) clamps VREF to GND; C4 (22 µF) filters it
+(R9·C4 ≈ 0.07 Hz, sub-1 Hz). Q1 (NPN) is an emitter follower: base = VREF via
 the R8 stopper, collector = P3, emitter = VPIP (~7.5 V), bypassed by C1 (22 µF)
 + C5 (10 µF).
 
-**Capsule bias:** `VPIP —R10(6.8k)→ MICOUT`; the capsule sits between MICOUT and
+**Capsule bias:** `VPIP → R10(6.8k) → MICOUT`; the capsule sits between MICOUT and
 GND.
 
 **Hot buffer** (draws ~3 mA from pin 2, carries the audio): Q2 (PNP) base = Q2B,
@@ -98,12 +98,12 @@ All within JLCPCB / PCBWay standard 4-layer capability.
 Two footprints are built inline by `build_pcb.py` rather than pulled from a
 library:
 
-- **`XLR_SolderCup`** — three THT face pads at the NC3MXX cup spacing. Pins 1
+- **`XLR_SolderCup`**: three THT face pads at the NC3MXX cup spacing. Pins 1
   and 2 sit on the front face (x = 1.90, 9.52 mm), pin 3 on the back face
   (x = 5.71 mm, centred). Each pad is 8 mm long. This is the "sandwich" mount:
   the board edge goes between the pins, so `BOARD_T` (0.8 mm) must be less than
   the pin-1/2 to pin-3 gap.
-- **`MIC_2pad`** — two through-hole solder points at the top edge for the
+- **`MIC_2pad`**: two through-hole solder points at the top edge for the
   AOM-5024 capsule leads (0.8 mm drill, 1.4 mm pad).
 
 ## Known trade-offs
@@ -111,7 +111,7 @@ library:
 - **Courtyard overlap.** Four 1206 caps on an 11.1 mm board force the assembly
   courtyards to overlap. There are **no copper shorts** (pad-to-pad clearance is
   enforced), so `courtyards_overlap` is downgraded to a warning rather than an
-  error. Switch C1–C4 to 0402/0603 or widen the board to eliminate it.
+  error. Switch C1-C4 to 0402/0603 or widen the board to eliminate it.
 - **Hidden silkscreen designators.** At this density the reference designators
   are illegible, so they're hidden. Assemble from the BOM and placement data.
 - **Freerouting determinism.** Routing is done by Freerouting; re-running
