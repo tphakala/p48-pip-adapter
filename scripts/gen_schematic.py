@@ -22,7 +22,7 @@ import schemdraw
 import schemdraw.elements as elm
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "images", "schematic.png")
+OUT = os.path.join(ROOT, "images", "schematic.webp")
 
 INK = "#17242f"
 NET = "#8a1c1c"
@@ -166,8 +166,12 @@ d.save(SVG)
 print("wrote", SVG)
 ink = shutil.which("inkscape") or r"C:\Program Files\Inkscape\bin\inkscape.exe"
 if os.path.exists(ink):
-    subprocess.run([ink, SVG, "--export-type=png", "--export-filename=" + OUT,
+    from PIL import Image
+    tmp_png = os.path.splitext(OUT)[0] + ".__tmp.png"
+    subprocess.run([ink, SVG, "--export-type=png", "--export-filename=" + tmp_png,
                     "--export-width=2800", "--export-background=#ffffff"], check=True)
+    Image.open(tmp_png).save(OUT, "WEBP", lossless=True, method=6)  # crisp lines/text
+    os.remove(tmp_png)
     print("wrote", OUT)
 else:
     print("Inkscape not found; wrote SVG only:", SVG)

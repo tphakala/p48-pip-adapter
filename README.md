@@ -7,7 +7,7 @@ PCB thin enough to slip *between* the pins of a Neutrik **NC3MXX** male XLR and
 solder to them directly — so a two-wire electret becomes a self-contained,
 buffered, impedance-balanced phantom mic with nothing hanging off the back.
 
-![Populated adapter board](images/board_hero.png)
+![Populated adapter board](images/board_hero.webp)
 
 This is the active-electronics counterpart to the 3D-printed
 [`aom5024-xlr`](https://github.com/tphakala/aom5024-xlr) pencil-mic housing.
@@ -68,7 +68,7 @@ Four copper layers, everything on the **top** side for single-sided assembly:
 | **In2.Cu** | split power plane (raw phantom / 8 V PIP) |
 | **B.Cu** | XLR pin-3 connection |
 
-![Top side — the two-column component layout](images/board_top.png)
+![Top side — the two-column component layout](images/board_top.webp)
 
 ### XLR sandwich mount
 
@@ -82,7 +82,7 @@ pin 3 on the back:
 | 2 | hot | front | 9.52 |
 | 3 | cold | back | 5.71 |
 
-![Reverse side: the centred pin-3 pad](images/board_bottom.png)
+![Reverse side: the centred pin-3 pad](images/board_bottom.webp)
 
 The three XLR pads are **8 mm long**: the internal Neutrik pin runs ~5 mm along
 the board and the pad extends 3 mm past the pin tip so there's copper to hand-
@@ -93,7 +93,7 @@ The board's thin edge slots straight **between** the three XLR pins — pins 1 &
 against the front (component) face, pin 3 against the back — with the pad end
 seated against the connector body and the mating pins left free for the mixer.
 
-![The board slotted between the three pins of an XLR connector](images/board_with_connector.png)
+![The board slotted between the three pins of an XLR connector](images/board_with_connector.webp)
 
 <sub>The bare pin insert is modelled at this board's actual XLR-pad positions
 (from `netlist.py`) to show the sandwich mount; the Neutrik NC3MXX STEP is one
@@ -108,7 +108,7 @@ biases the capsule; and the two impedance-matched PNP emitter followers (Q2 hot,
 Q3 cold) draw the balanced ~3 mA per phantom pin. Every net matches the board —
 the exported KiCad netlist is identical. ERC: 0 errors.
 
-![Schematic](images/schematic.png)
+![Schematic](images/schematic.webp)
 
 ## Bill of materials
 
@@ -157,7 +157,7 @@ exact 0.8 mm outline, capsule through-holes, every component embossed at true
 body size and height, raised solder pads, and the three long flat XLR solder
 pads running along the board from the connector edge. Print flat, components up.
 
-![3D-printable fit-test coupon](images/fit_test.png)
+![3D-printable fit-test coupon](images/fit_test.webp)
 
 ## Automated build pipeline
 

@@ -66,7 +66,7 @@ def composite(raw, out):
     fg = Image.open(raw).convert("RGBA")
     bg = Image.new("RGBA", fg.size, BG + (255,))
     bg.alpha_composite(fg)
-    bg.convert("RGB").save(out)
+    bg.convert("RGB").save(out, "WEBP", quality=90, method=6)
 
 
 def render_board():
@@ -82,17 +82,20 @@ def render_board():
              "--background", "transparent", *extra, BOARD],
             check=True,
         )
-        composite(raw, os.path.join(IMG, name + ".png"))
-        print("wrote", os.path.join(IMG, name + ".png"))
+        composite(raw, os.path.join(IMG, name + ".webp"))
+        print("wrote", os.path.join(IMG, name + ".webp"))
 
 
 def render_fittest():
     if not BLENDER:
-        print("Blender not found - skipping fit_test.png (set BLENDER to enable)")
+        print("Blender not found - skipping fit_test.webp (set BLENDER to enable)")
         return
+    os.makedirs(TMP, exist_ok=True)
     script = os.path.join(ROOT, "scripts", "render_fittest.py")
-    out = os.path.join(IMG, "fit_test.png")
-    subprocess.run([BLENDER, "-b", "-P", script, "--", STL, out], check=True)
+    raw = os.path.join(TMP, "fit_test.png")
+    subprocess.run([BLENDER, "-b", "-P", script, "--", STL, raw], check=True)
+    out = os.path.join(IMG, "fit_test.webp")
+    Image.open(raw).convert("RGB").save(out, "WEBP", quality=90, method=6)
     print("wrote", out)
 
 

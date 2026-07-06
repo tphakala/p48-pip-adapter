@@ -25,7 +25,7 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOARD = os.path.join(ROOT, "p48_pip_adapter.kicad_pcb")
-OUT = os.path.join(ROOT, "images", "board_with_connector.png")
+OUT = os.path.join(ROOT, "images", "board_with_connector.webp")
 SCENE = os.path.join(ROOT, "scripts", "render_connector_blender.py")
 BG = (235, 235, 237)
 
@@ -64,7 +64,7 @@ def main():
         bg = Image.new("RGBA", fg.size, BG + (255,))
         bg.alpha_composite(fg)
         os.makedirs(os.path.dirname(OUT), exist_ok=True)
-        bg.convert("RGB").save(OUT)
+        bg.convert("RGB").save(OUT, "WEBP", quality=90, method=6)
         print("wrote", OUT)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
