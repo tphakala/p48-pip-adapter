@@ -6,7 +6,7 @@ power adapter generated from [`netlist.py`](netlist.py). See
 manufacturing, fit test). This file records **where the numbers came from** and
 why the layout is shaped the way it is.
 
-> **Status — rev-E:** `netlist.py`, the board, the fab package and the schematic
+> **Status (rev-E):** `netlist.py`, the board, the fab package and the schematic
 > figure are all the rev-E low-noise design (emitter-bypass buffer CB2/CB3+RB2/RB3,
 > R1→7.5k, R1/R2 in 1206, R8→1k, R9→47k, C4→47µF, XLR_CLEARANCE 3.5 mm), verified
 > by the `sim/` harness. The inner copper is now two **solid GND planes** with via
@@ -47,7 +47,7 @@ tuning before a production run; the topology is what drives layout and routing.
 Pad roles: SOT-23 pad 1 = B, 2 = E, 3 = C (matches the KiCad MMBT390x symbols);
 D_Zener pad 1 = K (cathode), 2 = A (anode); R/C pads 1, 2. The **emitter-bypass
 network** (rev-E) AC-couples each buffer's low-impedance emitter to its phantom
-pin: `Q2E —CB2(22µF)→ NB2 —RB2(47Ω)→ P2` (and the cold-side mirror), dropping
+pin: `Q2E → CB2(22µF) → NB2 → RB2(47Ω) → P2` (and the cold-side mirror), dropping
 the output impedance from ~10 kΩ to ~78 Ω while R1/R2 still set the DC current.
 
 ### Circuit derivation
@@ -147,7 +147,7 @@ library:
 ## Verification status
 
 - **DRC:** 0 errors, 0 unconnected pads, 0 footprint errors (`kicad-cli pcb drc`).
-- **No separate ERC:** the design is schematic-free — `netlist.py` is the
+- **No separate ERC:** the design is schematic-free. `netlist.py` is the
   connectivity source of truth, `build_pcb.py` synthesizes the board directly
   from it, and `scripts/gen_schematic.py` draws the schematic figure from the
   same netlist, so board and schematic cannot disagree.

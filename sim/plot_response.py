@@ -202,14 +202,14 @@ def main():
     ax1.axhline(mid_gain, color=MUTED, lw=0.8, ls=(0, (2, 3)))
     ax1.set_ylabel("differential gain  (dB)", color=INK2)
     ax1.set_ylim(min(gain) - 1.5, max(2.0, max(gain) + 1.5))
-    ax1.set_title("Simulated frequency response — P48 → 8 V PIP adapter",
+    ax1.set_title("Simulated frequency response: P48 → 8 V PIP adapter",
                   color=INK, fontsize=13, fontweight="bold", loc="left", pad=10)
     ax1.annotate(f"{mid_gain:+.2f} dB midband  (near-unity buffer)",
                  xy=(1000, mid_gain), xytext=(2600, mid_gain + 1.15),
                  color=GAIN_C, fontsize=10, fontweight="bold", ha="left")
     top_droop = mid_gain - gain[-1]
     ax1.annotate(f"circuit flat into the ultrasonic\n(−{top_droop:.1f} dB at "
-                 f"{FMAX/1e3:.0f} kHz — usable for bat calls)",
+                 f"{FMAX/1e3:.0f} kHz, usable for bat calls)",
                  xy=(fg[-1], gain[-1]), xytext=(6.0e3, gain[-1] - 2.0),
                  color=INK2, fontsize=9, va="center", ha="left",
                  arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.8))

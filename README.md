@@ -64,8 +64,8 @@ feeds the cold buffer (Q3) plus the regulator.
 ## Simulated performance
 
 The circuit is verified headlessly in **ngspice**. The deck is generated from
-[`netlist.py`](netlist.py) — the same single source of truth as the board and
-schematic — so the simulation can't drift from the hardware. `sim/run.ps1`
+[`netlist.py`](netlist.py), the same single source of truth as the board and
+schematic, so the simulation can't drift from the hardware. `sim/run.ps1`
 range-checks 17 design assertions; `sim/plot_response.py` sweeps the wide-band
 response below (10 Hz – 384 kHz).
 
@@ -73,17 +73,17 @@ response below (10 Hz – 384 kHz).
 
 - **Flat through the audio band** at −0.56 dB (a near-unity buffer), driving a
   modelled ~30 m cable into a 2 kΩ preamp.
-- **Flat well into the ultrasonic** — only ~0.6 dB down at **384 kHz** (the
+- **Flat well into the ultrasonic**: only ~0.6 dB down at **384 kHz** (the
   192 kHz Nyquist of a 384 kHz sample rate). The trace is referred to the
   capsule output node, so it shows the *adapter electronics in isolation*: with
   a wide-band capsule the circuit is not the bottleneck for ultrasonic work such
-  as **bat-call recording**. (The stock AOM-5024 electret rolls off far earlier
-  — swap it for an ultrasonic-capable capsule for that use.)
-- **~78 Ω source impedance**, flat from the audio band into the ultrasonic — low
+  as **bat-call recording**. (The stock AOM-5024 electret rolls off far earlier;
+  swap it for an ultrasonic-capable capsule for that use.)
+- **~78 Ω source impedance**, flat from the audio band into the ultrasonic, low
   enough to drive long cable without HF loss and to look benign to any balanced
   input.
 - The **gentle sub-50 Hz roll-off** is the CB2/CB3 emitter bypass, and it is
-  deliberate — some LF attenuation is desirable here and it keeps those bypass
+  deliberate: some LF attenuation is desirable here and it keeps those bypass
   caps small.
 
 See [`sim/README.md`](sim/README.md) for the harness and the full assertion list.
@@ -91,7 +91,7 @@ See [`sim/README.md`](sim/README.md) for the harness and the full assertion list
 ## The board
 
 Four copper layers, everything on the **top** side for single-sided assembly.
-The two inner layers are **solid ground planes** — a real on-board Faraday cage
+The two inner layers are **solid ground planes**, a real on-board Faraday cage
 for the µV front end, via-stitched to the outer ground pours and to the XLR
 pin-1 ground, backing up the grounded zinc shell:
 
@@ -186,7 +186,7 @@ drawn from the same netlist, so they cannot disagree.
 - **DRC: 0 errors, 0 unconnected pads, 0 footprint errors** (`kicad-cli pcb drc`).
 - Track 0.15 mm (0.25 mm on the Power netclass), clearance 0.125 mm, vias
   0.6 / 0.3 mm, copper-to-edge ≥ 0.25 mm, solid In1/In2 ground planes with GND
-  via stitching — all within JLCPCB / PCBWay standard 4-layer capability.
+  via stitching, all within JLCPCB / PCBWay standard 4-layer capability.
 - Fab package: Gerber X2 + Excellon drill (PTH/NPTH separated) in
   [`Gerbers_PCBWay/`](Gerbers_PCBWay), zipped as `P48_Adapter_PCBWay.zip`.
 
@@ -212,18 +212,18 @@ pads running along the board from the connector edge. Print flat, components up.
 
 The board mounts as a sandwich between the Neutrik pins: pins 1 and 2 solder to
 the front face, pin 3 to the back. Verified geometry (official KiCad Neutrik
-NC3FAAV footprint, corroborated by the printed fit test) — pins 1 and 2 are
+NC3FAAV footprint, corroborated by the printed fit test): pins 1 and 2 are
 coplanar and 7.62 mm apart; pin 3 is centred 4.45 mm off their plane. With the
-~3 mm solder cups and the 0.8 mm board, pin 3 clears by only ~1.4 mm — about
-0.6 mm of total slack — so when the board is seated flush against pins 1 and 2,
-the pin-3 cup sits roughly 0.5–0.7 mm off its back-face pad and needs a
+~3 mm solder cups and the 0.8 mm board, pin 3 clears by only ~1.4 mm (about
+0.6 mm of total slack), so when the board is seated flush against pins 1 and 2,
+the pin-3 cup sits roughly 0.5 to 0.7 mm off its back-face pad and needs a
 deliberately fat fillet to bridge the gap.
 
 Solder in this order:
 
 1. **Pre-tin** the pin-3 back-face pad **and** the pin-3 solder cup separately.
 2. Seat the board flush against pins 1 and 2 and **solder those two joints
-   first** — they set the board position.
+   first**: they set the board position.
 3. **Bridge pin 3 last**, reflowing both pre-tinned surfaces into one fat fillet
    across the ~0.6 mm gap.
 
@@ -266,7 +266,7 @@ python scripts/render_previews.py   # regenerate the images/ previews
   at the board's real XLR-pad positions (no third-party connector model needed).
 - **`scripts/gen_schematic.py`**: the wired schematic figure, drawn from
   `netlist.py` with schemdraw (SVG → WebP via Inkscape). This is the schematic
-  of record — the board is synthesized directly from the netlist, so there is no
+  of record: the board is synthesized directly from the netlist, so there is no
   separate hand-drawn KiCad schematic to fall out of sync.
 
 ### Toolchain
