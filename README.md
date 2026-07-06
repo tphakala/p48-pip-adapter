@@ -89,6 +89,28 @@ the board and the pad extends 3 mm past the pin tip so there's copper to hand-
 solder to. The pin tip keeps ≥ 5 mm clearance to the nearest component; the
 32.4 mm board length is *derived* from that constraint in `netlist.py`.
 
+The board plugs straight onto a bare 3-pin XLR insert — its pad end slots
+between the three contacts (two on the front face, one on the back), and the
+mating pins face the mixer. The 19 mm connector barrel is wider than the
+11.1 mm board, which is exactly why the board has to be this narrow.
+
+![The board soldered onto a bare 3-pin XLR connector](images/board_with_connector.png)
+
+<sub>The XLR connector shown is a third-party reference model (Amphenol/ALPSR
+XB-XLR-CT3-3TX, via TraceParts), used here only to visualize the mount; it is
+not part of this design and is not redistributed.</sub>
+
+## Schematic
+
+Connectivity is defined by **net labels** (each pin carries its net name), so
+the circuit is read by net rather than by drawn wires. The authoritative,
+machine-readable net list lives in [`netlist.py`](netlist.py) and is tabulated
+in [SPEC.md](SPEC.md); the KiCad schematic (`p48_pip_adapter.kicad_sch`) and the
+board are both generated from it, and its exported netlist is identical to the
+board's. ERC: 0 errors.
+
+![Schematic](images/schematic.png)
+
 ## Bill of materials
 
 All parts are SMD to fit the 11.1 mm width. Component values are nominal —
@@ -165,6 +187,11 @@ python scripts/render_previews.py   # regenerate the images/ previews
 - **`gen_fittest.py`** — extracts the routed geometry into the fit-test STL.
 - **`scripts/render_previews.py`** — the preview images above, from the board
   (kicad-cli raytracer) and the fit-test STL (Blender).
+- **`scripts/render_connector.py`** — the board-on-connector render: exports the
+  board to GLB, imports a bare XLR connector model from `reference/` (`.3mf`
+  auto-converted by `tmf2stl.py`), and renders the pair in Blender. The
+  connector model is third-party and not shipped (see `reference/SOURCES.txt`).
+- The schematic image is `kicad-cli sch export svg` of `p48_pip_adapter.kicad_sch`.
 
 ### Toolchain
 

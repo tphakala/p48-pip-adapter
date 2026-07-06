@@ -1,6 +1,13 @@
 (kicad_sch (version 20230121) (generator eeschema)
   (uuid 60a58189-500d-462b-a513-19efb22d08dd)
-  (paper "A4")
+  (paper "A3")
+  (title_block
+    (title "P48 to 8V PIP Adapter")
+    (rev "A")
+    (company "github.com/tphakala/p48-pip-adapter")
+    (comment 1 "Impedance-balanced phantom-power to plug-in-power mic adapter")
+    (comment 2 "Connectivity by net labels; see netlist.py / SPEC.md for the authoritative net list")
+  )
   (lib_symbols
     (symbol "Connector:Conn_01x02_Male" (pin_names (offset 1.016) hide) (in_bom yes) (on_board yes)
       (property "Reference" "J" (at 0 2.54 0)

@@ -23,3 +23,6 @@ images/_raw/
 
 # Local-only reference material (not ours to redistribute)
 fit_test/*.jpg
+
+# Third-party reference models - not ours to redistribute
+reference/
