@@ -19,18 +19,33 @@ from mathutils import Vector, Matrix
 GLB, CONN_STL, OUT = sys.argv[-3], sys.argv[-2], sys.argv[-1]
 
 def envf(k, d): return float(os.environ.get(k, d))
-CONN_ROTX = envf("CROTX", "90")     # lay connector axis from Z to Y
-CONN_ROTY = envf("CROTY", "180")    # roll: 2 contacts to the top face
+CONN_ROTX = envf("CROTX", "-90")    # lay connector axis from Z to Y (solder-cup end toward board)
+CONN_ROTY = envf("CROTY", "0")      # roll about the connector axis
 CONN_ROTZ = envf("CROTZ", "0")
 CONN_Y    = envf("CY", "-24.5")     # connector position along the board axis
 CONN_Z    = envf("CZ", "0.4")       # board mid-plane
 CAM_AZ    = envf("AZ", "50")
 CAM_EL    = envf("EL", "27")
 SAMPLES   = int(envf("SPP", "220"))
+BODY_THR  = envf("BODYTHR", "0.62") # radial threshold for the black body band
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
 sc.render.engine = "CYCLES"; sc.cycles.samples = SAMPLES; sc.cycles.use_denoising = True
+# Use the GPU (OptiX/CUDA) if available -- big speedup on an NVIDIA card.
+try:
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    for backend in ("OPTIX", "CUDA", "HIP", "ONEAPI"):
+        devs = prefs.get_devices_for_type(backend)
+        if devs:
+            prefs.compute_device_type = backend
+            for dev in devs:
+                dev.use = dev.type != "CPU"
+            sc.cycles.device = "GPU"
+            print("Cycles GPU:", backend)
+            break
+except Exception as e:
+    print("GPU setup skipped:", e)
 sc.render.resolution_x, sc.render.resolution_y = 1600, 1050
 sc.view_settings.view_transform = "Standard"; sc.render.film_transparent = True
 world = bpy.data.worlds.new("W"); world.use_nodes = True
@@ -69,11 +84,53 @@ R = (Matrix.Rotation(math.radians(CONN_ROTZ), 4, 'Z') @
      Matrix.Rotation(math.radians(CONN_ROTX), 4, 'X'))
 conn.matrix_world = R @ conn.matrix_world
 conn.matrix_world = Matrix.Translation(Vector((0, CONN_Y, CONN_Z))) @ conn.matrix_world
-m = bpy.data.materials.new("chrome"); m.use_nodes = True
-b = m.node_tree.nodes["Principled BSDF"]
-b.inputs["Base Color"].default_value = (0.60, 0.60, 0.63, 1)
-b.inputs["Metallic"].default_value = 0.9; b.inputs["Roughness"].default_value = 0.25
-conn.data.materials.clear(); conn.data.materials.append(m)
+def pbr(name, color, metallic, rough):
+    mm = bpy.data.materials.new(name); mm.use_nodes = True
+    bb = mm.node_tree.nodes["Principled BSDF"]
+    bb.inputs["Base Color"].default_value = (*color, 1)
+    bb.inputs["Metallic"].default_value = metallic
+    bb.inputs["Roughness"].default_value = rough
+    return mm
+
+# Two-tone by geometry (the 3MF carries no per-part materials): the bulky
+# central collar is the black body; the contacts protruding at each axial end
+# are gold.  Classify each face by the mesh's local long axis (Z) -- faces in
+# the contiguous central high-radius band are body, the rest are contacts.
+BLACK = pbr("body_black", (0.022, 0.022, 0.024), 0.0, 0.42)
+GOLD = pbr("pins_gold", (0.83, 0.66, 0.26), 1.0, 0.28)
+me = conn.data
+vs = me.vertices
+x0 = sum(v.co.x for v in vs) / len(vs)
+y0 = sum(v.co.y for v in vs) / len(vs)
+zmin = min(v.co.z for v in vs); zmax = max(v.co.z for v in vs)
+N = 80
+import math as _m
+rad = [0.0] * N
+def _bin(z): return min(N - 1, max(0, int((z - zmin) / (zmax - zmin) * N)))
+for v in vs:
+    i = _bin(v.co.z); r = _m.hypot(v.co.x - x0, v.co.y - y0)
+    if r > rad[i]:
+        rad[i] = r
+thr = BODY_THR * max(rad)
+# contiguous band of high-radius bins around the centre = the collar/body
+c = N // 2
+while c > 0 and rad[c] < thr:
+    c += 1 if rad[min(c + 1, N - 1)] >= thr else -1
+    if c in (0, N - 1):
+        break
+lo = c
+while lo > 0 and rad[lo - 1] >= thr:
+    lo -= 1
+hi = c
+while hi < N - 1 and rad[hi + 1] >= thr:
+    hi += 1
+zlo = zmin + lo / N * (zmax - zmin)
+zhi = zmin + (hi + 1) / N * (zmax - zmin)
+me.materials.clear(); me.materials.append(BLACK); me.materials.append(GOLD)
+for p in me.polygons:
+    zc = sum(vs[i].co.z for i in p.vertices) / len(p.vertices)
+    p.material_index = 0 if zlo <= zc <= zhi else 1
+me.update()
 bpy.context.view_layer.update()
 
 # shadow-catcher floor at the lowest point

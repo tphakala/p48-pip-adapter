@@ -102,12 +102,12 @@ not part of this design and is not redistributed.</sub>
 
 ## Schematic
 
-Connectivity is defined by **net labels** (each pin carries its net name), so
-the circuit is read by net rather than by drawn wires. The authoritative,
-machine-readable net list lives in [`netlist.py`](netlist.py) and is tabulated
-in [SPEC.md](SPEC.md); the KiCad schematic (`p48_pip_adapter.kicad_sch`) and the
-board are both generated from it, and its exported netlist is identical to the
-board's. ERC: 0 errors.
+The full circuit, drawn from [`netlist.py`](netlist.py) — the single source of
+truth. On the left, the capacitance-multiplier reference/regulator (D1 zener,
+R9/C4 sub-1 Hz filter, Q1 emitter follower) produces the clean **VPIP** rail; R10
+biases the capsule; and the two impedance-matched PNP emitter followers (Q2 hot,
+Q3 cold) draw the balanced ~3 mA per phantom pin. Every net matches the board —
+the exported KiCad netlist is identical. ERC: 0 errors.
 
 ![Schematic](images/schematic.png)
 
@@ -191,7 +191,8 @@ python scripts/render_previews.py   # regenerate the images/ previews
   board to GLB, imports a bare XLR connector model from `reference/` (`.3mf`
   auto-converted by `tmf2stl.py`), and renders the pair in Blender. The
   connector model is third-party and not shipped (see `reference/SOURCES.txt`).
-- The schematic image is `kicad-cli sch export svg` of `p48_pip_adapter.kicad_sch`.
+- **`scripts/gen_schematic.py`** — the wired schematic image, drawn from
+  `netlist.py` with schemdraw (SVG → PNG via Inkscape).
 
 ### Toolchain
 
