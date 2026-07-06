@@ -47,10 +47,10 @@ A two-wire electret can't produce a true differential signal on its own, so the
 board fakes a balanced line the preamp can't tell from the real thing:
 
 - **Pin 2 (hot)** is driven by a PNP emitter follower (Q2), a Class-A buffer
-  that converts the capsule's high output impedance to a low ~30-50 Ω that
+  that converts the capsule's high output impedance to a low ~78 Ω that
   drives long cable without treble roll-off.
 - **Pin 3 (cold)** uses an identical PNP (Q3) with its base AC-grounded: no
-  audio, but it matches Q2's ~30-50 Ω output impedance exactly.
+  audio, but it matches Q2's ~78 Ω output impedance exactly.
 - To the preamp this looks like a balanced source, so common-mode hum and RF
   cancel.
 
@@ -60,6 +60,33 @@ The circuit pulls roughly **3 mA per pin**, a balanced DC draw that suits any
 balanced input, whether electronically balanced (most audio interfaces and
 modern preamps) or transformer-coupled: pin 2 feeds the hot buffer (Q2); pin 3
 feeds the cold buffer (Q3) plus the regulator.
+
+## Simulated performance
+
+The circuit is verified headlessly in **ngspice**. The deck is generated from
+[`netlist.py`](netlist.py) — the same single source of truth as the board and
+schematic — so the simulation can't drift from the hardware. `sim/run.ps1`
+range-checks 17 design assertions; `sim/plot_response.py` sweeps the wide-band
+response below (10 Hz – 384 kHz).
+
+![Simulated frequency response](images/frequency_response.webp)
+
+- **Flat through the audio band** at −0.56 dB (a near-unity buffer), driving a
+  modelled ~30 m cable into a 2 kΩ preamp.
+- **Flat well into the ultrasonic** — only ~0.6 dB down at **384 kHz** (the
+  192 kHz Nyquist of a 384 kHz sample rate). The trace is referred to the
+  capsule output node, so it shows the *adapter electronics in isolation*: with
+  a wide-band capsule the circuit is not the bottleneck for ultrasonic work such
+  as **bat-call recording**. (The stock AOM-5024 electret rolls off far earlier
+  — swap it for an ultrasonic-capable capsule for that use.)
+- **~78 Ω source impedance**, flat from the audio band into the ultrasonic — low
+  enough to drive long cable without HF loss and to look benign to any balanced
+  input.
+- The **gentle sub-50 Hz roll-off** is the CB2/CB3 emitter bypass, and it is
+  deliberate — some LF attenuation is desirable here and it keeps those bypass
+  caps small.
+
+See [`sim/README.md`](sim/README.md) for the harness and the full assertion list.
 
 ## The board
 
@@ -162,6 +189,28 @@ body size and height, raised solder pads, and the three long flat XLR solder
 pads running along the board from the connector edge. Print flat, components up.
 
 ![3D-printable fit-test coupon](images/fit_test.webp)
+
+### Soldering to the connector
+
+The board mounts as a sandwich between the Neutrik pins: pins 1 and 2 solder to
+the front face, pin 3 to the back. Verified geometry (official KiCad Neutrik
+NC3FAAV footprint, corroborated by the printed fit test) — pins 1 and 2 are
+coplanar and 7.62 mm apart; pin 3 is centred 4.45 mm off their plane. With the
+~3 mm solder cups and the 0.8 mm board, pin 3 clears by only ~1.4 mm — about
+0.6 mm of total slack — so when the board is seated flush against pins 1 and 2,
+the pin-3 cup sits roughly 0.5–0.7 mm off its back-face pad and needs a
+deliberately fat fillet to bridge the gap.
+
+Solder in this order:
+
+1. **Pre-tin** the pin-3 back-face pad **and** the pin-3 solder cup separately.
+2. Seat the board flush against pins 1 and 2 and **solder those two joints
+   first** — they set the board position.
+3. **Bridge pin 3 last**, reflowing both pre-tinned surfaces into one fat fillet
+   across the ~0.6 mm gap.
+
+Soldering pins 1 and 2 before pin 3 keeps the board from being stressed while
+it is wedged between the cups.
 
 ## Automated build pipeline
 

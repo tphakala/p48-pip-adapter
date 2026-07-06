@@ -42,6 +42,7 @@ FP_SOD323  = ("Diode_SMD",          "D_SOD-323")
 FP_C1206   = ("Capacitor_SMD",      "C_1206_3216Metric")
 FP_C0805   = ("Capacitor_SMD",      "C_0805_2012Metric")
 FP_R0603   = ("Resistor_SMD",       "R_0603_1608Metric")
+FP_R1206   = ("Resistor_SMD",       "R_1206_3216Metric")   # R1/R2 thermal (issue #4)
 
 # Custom footprints are built inline by build_pcb.py.
 FP_XLR = ("custom", "XLR_SolderCup")   # 3 THT pads, Neutrik NC3MXX pin pitch
@@ -56,12 +57,22 @@ COMPONENTS = {
     "Q3":   ("MMBT3906", "Transistor_BJT:MMBT3906",      FP_SOT23),
     "D1":   ("8.2V",     "Device:D_Zener",               FP_SOD323),
     "C1":   ("22uF",     "Device:C",                     FP_C1206),
+    # C2 couples the capsule into Q2's base (signal path, only ~1 V DC across it):
+    # use X7R -- microphonics are the only concern (derating is negligible at 1 V);
+    # a film/polymer A/B before production is a nicety (issue #9).
+    # POLARITY (issue #6): sim is inverting; IF the bench capsule-polarity test
+    # confirms it, the zero-BOM-cost fix is to swap the base coupling here --
+    # move C2 to Q3B and C3 (the AC ground) to Q2B.  Do NOT apply blind.
     "C2":   ("22uF",     "Device:C",                     FP_C1206),
     "C3":   ("22uF",     "Device:C",                     FP_C1206),
     "C4":   ("47uF",     "Device:C",                     FP_C1206),
     "C5":   ("10uF",     "Device:C",                     FP_C0805),
-    "R1":   ("7.5k",     "Device:R",                     FP_R0603),
-    "R2":   ("10k",      "Device:R",                     FP_R0603),
+    # R1/R2 in 1206, not 0603: each dissipates continuously inside the sealed
+    # XLR shell -- R1 = 67 mW (pin-2's full ~3 mA x 22.5 V), R2 = 50 mW.  1206's
+    # 250 mW rating leaves ~30% derated margin at 80 C ambient; a 0603 would run
+    # near its limit.  Matched package hot/cold for symmetry (issue #4).
+    "R1":   ("7.5k",     "Device:R",                     FP_R1206),
+    "R2":   ("10k",      "Device:R",                     FP_R1206),
     "R3":   ("100k",     "Device:R",                     FP_R0603),
     "R4":   ("100k",     "Device:R",                     FP_R0603),
     "R6":   ("100k",     "Device:R",                     FP_R0603),
@@ -71,9 +82,14 @@ COMPONENTS = {
     "R10":  ("6.8k",     "Device:R",                     FP_R0603),
     # --- rev-E low-noise / low-Zout output buffer (issues #2, #11 + noise opt) --
     # CB2/CB3 AC-bypass R1/R2 so the output is taken at Q2/Q3's low-Z emitters:
-    # Zout 10k->~80 ohm, level +21 dB, input-referred noise -34 dB, flat bass.
+    # Zout 10k->~80 ohm (in-band), level +21 dB, input-referred noise -34 dB.
     # RB2/RB3 are the series stop resistors (capacitive-cable stability).
-    # NOTE: CB2/CB3 sit across ~25 V DC -> they MUST be 50 V rated.
+    # NOTE: CB2/CB3 sit across ~23 V DC -> they MUST be 50 V rated; spec X7R.
+    # DC-bias derating (a 50 V X7R holds only ~12-17 uF at 23 V) raises the bass
+    # corner, but that is ACCEPTABLE here: some sub-50 Hz rolloff is desirable
+    # for this use case, so no oversizing/polymer is needed (issue #9).  Class-2
+    # MLCC are mildly microphonic -- a film/polymer A/B is a pre-production
+    # nicety only, not a blocker.
     "CB2":  ("22uF",     "Device:C",                     FP_C1206),
     "CB3":  ("22uF",     "Device:C",                     FP_C1206),
     "RB2":  ("47",       "Device:R",                     FP_R0603),
@@ -126,13 +142,15 @@ BOARD_T = 0.8           # THIN 4-layer: the edge must slip between the XLR pins
 
 # real KiCad courtyard (X, Y mm) -- for the informational overlap report
 COURTYARD = {
-    FP_R0603: (3.05, 1.55), FP_C1206: (4.69, 2.39), FP_C0805: (3.49, 2.05),
+    FP_R0603: (3.05, 1.55), FP_R1206: (4.65, 2.35),
+    FP_C1206: (4.69, 2.39), FP_C0805: (3.49, 2.05),
     FP_SOT23: (3.95, 3.49), FP_SOD323: (3.29, 1.99),
     FP_XLR: (9.8, 8.4), FP_MIC: (5.4, 2.0),
 }
 # real pad-copper extent (X, Y mm) -- the placer keeps these from overlapping
 PAD_EXTENT = {
-    FP_R0603: (2.45, 0.95), FP_C1206: (4.10, 1.80), FP_C0805: (2.90, 1.45),
+    FP_R0603: (2.45, 0.95), FP_R1206: (4.05, 1.75),
+    FP_C1206: (4.10, 1.80), FP_C0805: (2.90, 1.45),
     FP_SOT23: (3.35, 2.50), FP_SOD323: (2.70, 0.45),
     FP_XLR: (9.6, 8.0), FP_MIC: (5.0, 1.4),
 }

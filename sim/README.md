@@ -13,6 +13,7 @@ derive from, so the simulation cannot drift away from the board.
 sim/
 ├── gen_deck.py            # imports ../netlist.py, writes p48.cir (stdlib only)
 ├── run.ps1               # regenerate → run ngspice → parse → assert (exit code)
+├── plot_response.py      # wide-band AC sweep → ../images/frequency_response.webp
 ├── models/
 │   ├── zener_bzx84c8v2.lib   # D1, datasheet-derived (Nexperia BZX84-C8V2)
 │   ├── bjt_mmbt390x.lib      # Q1 (NPN 3904), Q2/Q3 (PNP 3906)
@@ -55,6 +56,20 @@ Run the deck by hand:
 ```powershell
 ngspice_con.exe -b sim\p48.cir      # (run from the sim/ dir so .include resolves)
 ```
+
+## Frequency-response plot
+
+```
+python sim/plot_response.py          # needs: pip install matplotlib pillow
+```
+
+`plot_response.py` reuses `gen_deck`'s component cards + harness, runs two AC
+sweeps (10 Hz – 384 kHz: the audio band plus the ultrasonic range up to the
+192 kHz Nyquist of a 384 kHz sample rate) and writes
+`../images/frequency_response.webp` — differential gain and output impedance vs
+frequency. The gain trace is referred to the capsule output node, so it shows
+the adapter electronics in isolation (the circuit is flat well into the
+ultrasonic; the capsule sets the real HF limit).
 
 ## What each analysis checks
 
