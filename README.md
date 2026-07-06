@@ -68,7 +68,7 @@ Four copper layers, everything on the **top** side for single-sided assembly:
 | **In2.Cu** | split power plane (raw phantom / 8 V PIP) |
 | **B.Cu** | XLR pin-3 connection |
 
-![Top and bottom of the board](images/board_top.png)
+![Top side — the two-column component layout](images/board_top.png)
 
 ### XLR sandwich mount
 
